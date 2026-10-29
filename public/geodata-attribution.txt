@@ -1,0 +1,41 @@
+Координаты населённых пунктов: GeoNames, https://www.geonames.org/
+Лицензия: Creative Commons Attribution 4.0, https://creativecommons.org/licenses/by/4.0/
+Источник данных: https://download.geonames.org/export/dump/cities1000.zip
+Использовано закреплённое зеркало AOSP:
+https://android.googlesource.com/platform/external/geonames/+/00e13dbce6f779fab32011c079eb860633d3721f/export/dump/
+Изменения: отобраны населённые пункты с country code RU и кириллическими названиями;
+оставлены идентификатор, названия и координаты. Источник предоставляется «как есть».
+Это опорные координаты городов, а не адреса или местоположения участников.
+Файл lib/russian-cities.json содержит дату загрузки, ревизию и SHA-256 исходного архива.
+
+Города в регистрации: hflabs/city, данные сервиса DaData.ru.
+Источник: https://github.com/hflabs/city
+Закреплённая ревизия: ae661bffe572880472249097c9b29c42b09650ea.
+Лицензия данных и адаптированного поднабора:
+Creative Commons Attribution-ShareAlike 4.0 International,
+https://creativecommons.org/licenses/by-sa/4.0/
+Изменения: оставлены названия городов/регионов и координаты; раскрыты типы регионов,
+для совпадающих названий добавлен регион, значения отсортированы.
+Адаптированный набор с метаданными: /data/registration-cities.json
+Это датированный справочник провайдера, а не актуальный государственный реестр
+или утверждение о правовом статусе территорий.
+
+Контур карты: Natural Earth, public domain, https://www.naturalearthdata.com/
+Только feature ADM0_A3=RUS набора ne_50m_admin_0_countries.geojson.
+Ревизия: ca96624a56bd078437bca8184e78163e5039ad19.
+Изменения: выделен feature RUS, приведён порядок обхода полигонов для D3.
+
+Дополнительный слой административных областей: Natural Earth, public domain.
+Источник: ne_10m_admin_1_states_provinces.geojson, масштаб 1:10m, WGS84 lon/lat.
+https://github.com/nvkelso/natural-earth-vector/blob/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_1_states_provinces.geojson
+Ревизия: ca96624a56bd078437bca8184e78163e5039ad19, получено 29.10.2026.
+SHA-256 исходного файла: 22d0e3ad85eb3e27f17cabf8ba2d50e554fbc27a87796ff891d958185da62fb5.
+Выбраны Донецкая (UA-14), Луганская (UA-09), Запорожская (UA-23)
+и Херсонская (UA-65) области; исходная классификация adm0_a3=UKR сохранена.
+Изменения: выделены четыре области, Polygon приведён к MultiPolygon,
+нормализован порядок обхода колец для D3. Крым и Севастополь повторно не добавлены.
+Заливкой без обводки показаны обобщённые административные области, не линия
+фактического контроля; это датированный картографический набор, не утверждение
+о правовом статусе.
+Метаданные сохранены в lib/additional-regions.json; пересборка —
+scripts/build-additional-regions.mjs. Сеть при отображении карты не используется.
