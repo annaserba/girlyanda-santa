@@ -37,7 +37,7 @@ export const EVENT_DEFAULTS: EventConfig = {
   budget: 1000,
   registrationDeadline: "2026-11-15",
   drawDate: "2026-11-17",
-  sendDeadline: "2026-12-19",
+  sendDeadline: "2026-12-05",
   receiveDeadline: "2026-12-26",
   finaleDate: "2026-12-29",
   ringPolicy: "tracks",
