@@ -67,7 +67,7 @@ export const profileSchema = z
     shift: z.string().trim().max(120).default(""),
     track: z.enum(["local", "country"]),
     pickupPoint: z.string().trim().max(500).default(""),
-    wishes: z.string().trim().min(1, "Добавьте пожелания.").max(2000),
+    wishes: z.string().trim().max(2000).default(""),
     reserveVolunteer: z.boolean().default(false),
     consent: z.boolean(),
   })

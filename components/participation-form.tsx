@@ -174,10 +174,9 @@ export function ParticipationForm({
           </label>
         )}
         <label className="block space-y-1 text-sm">
-          Пара пожеланий
+          Пара пожеланий (необязательно)
           <textarea
             name="wishes"
-            required
             maxLength={2000}
             rows={3}
             defaultValue={p.wishes}

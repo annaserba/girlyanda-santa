@@ -142,13 +142,11 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       }
     });
     it("shows names only for opted-in map participants and excludes contact and reveal data", async () => {
-      await db
-        .insert(schema.participant)
-        .values({
-          name: "Не подтвердил участие",
-          city: "Москва",
-          site: "Офис",
-        });
+      await db.insert(schema.participant).values({
+        name: "Не подтвердил участие",
+        city: "Москва",
+        site: "Офис",
+      });
       const privateSnapshot = await getAdminGarlandSnapshot(EVENT_DEFAULTS);
       expect(privateSnapshot.phase).toBe("registration");
       expect(privateSnapshot.people).toHaveLength(3);
@@ -180,16 +178,14 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         .select()
         .from(schema.assignment)
         .orderBy(schema.assignment.id);
-      await db
-        .insert(schema.participant)
-        .values({
-          name: "Поздний Участник",
-          city: "Москва",
-          site: "Офис",
-          track: "local",
-          wishes: "Книга",
-          consentAt: new Date(),
-        });
+      await db.insert(schema.participant).values({
+        name: "Поздний Участник",
+        city: "Москва",
+        site: "Офис",
+        track: "local",
+        wishes: "Книга",
+        consentAt: new Date(),
+      });
       const snapshot = await getAdminGarlandSnapshot(EVENT_DEFAULTS);
       expect(snapshot.phase).toBe("gifts");
       expect(snapshot.people).toHaveLength(3);
@@ -1015,7 +1011,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       expect((await response.json()).error).toContain("Строка 2");
       expect(await db.select().from(schema.participant)).toEqual(before);
     });
-    it("saves intercity profiles without sites and includes them in the draw", async () => {
+    it("saves intercity profiles without sites or wishes and includes them in the draw", async () => {
       await config(true);
       for (const id of [1, 2, 3]) {
         state.actor = { id: `u${id}`, role: "user" };
@@ -1031,7 +1027,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
             ...(id === 1 ? {} : { site: "" }),
             shift: "",
             track: "country",
-            wishes: "Книги",
+            ...(id === 1 ? {} : { wishes: id === 2 ? "" : "   " }),
             pickupPoint: "ПВЗ 15",
             consent: true,
             reserveVolunteer: false,
@@ -1041,6 +1037,9 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       }
       const profiles = await db.select().from(schema.participant);
       expect(profiles.every((participant) => participant.site === "")).toBe(
+        true,
+      );
+      expect(profiles.every((participant) => participant.wishes === "")).toBe(
         true,
       );
       await config(false);

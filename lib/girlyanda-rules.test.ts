@@ -76,7 +76,7 @@ describe("participation and importing", () => {
     expect(parsed.site).toBe("");
     expect(profileReady(parsed)).toBe(true);
     expect(profileReady({ ...parsed, city: "" })).toBe(false);
-    expect(profileReady({ ...parsed, wishes: "" })).toBe(false);
+    expect(profileReady({ ...parsed, wishes: "" })).toBe(true);
   });
   it("treats an omitted site as empty without dropping the other requirements", () => {
     const { site: _site, ...withoutSite } = profile;
@@ -106,10 +106,12 @@ describe("participation and importing", () => {
   });
   it("parses an eight-column coordinator list", () => {
     const list = parseMemberList(
-      "Иванова Анна;;Уфа;Склад;;Рядом;;Люблю чай\nПетров Иван;i@corp.test;Томск;Офис;;Страна;ПВЗ 15;Книги",
+      "Иванова Анна;;Уфа;Склад;;Рядом;;\nПетров Иван;i@corp.test;Томск;Офис;;Страна;ПВЗ 15;Книги",
     );
     expect(list).toHaveLength(2);
     expect(list[0].consent).toBe(true);
+    expect(list[0].wishes).toBe("");
+    expect(profileReady(list[0])).toBe(true);
     expect(list[1].track).toBe("country");
   });
   it("rejects malformed lines instead of shifting columns", () => {
