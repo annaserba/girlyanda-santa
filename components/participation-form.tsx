@@ -1,0 +1,164 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import type { Participant } from "@/lib/db/schema";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CitySelect } from "@/components/city-select";
+
+export function ParticipationForm({
+  participant: p,
+  locked,
+  open,
+}: {
+  participant: Participant;
+  locked: boolean;
+  open: boolean;
+}) {
+  const router = useRouter();
+  const [track, setTrack] = useState(p.track ?? "local");
+  const [city, setCity] = useState(p.city);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!city) {
+      setMessage("Выберите город РФ из списка.");
+      return;
+    }
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city: data.get("city"),
+          site: data.get("site"),
+          shift: data.get("shift"),
+          track,
+          pickupPoint: data.get("pickupPoint") ?? "",
+          wishes: data.get("wishes"),
+          consent: data.get("consent") === "on",
+          reserveVolunteer: data.get("reserveVolunteer") === "on",
+        }),
+      });
+      const json = await res.json();
+      setMessage(
+        res.ok
+          ? "Анкета сохранена."
+          : (json.error ?? "Не удалось сохранить анкету."),
+      );
+      if (res.ok) router.refresh();
+    } catch {
+      setMessage("Нет связи с сервером. Попробуйте ещё раз.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {p.consentAt
+          ? "Вы подтвердили участие."
+          : "Аккаунт ещё не означает участие. Заполните анкету и подтвердите согласие."}{" "}
+        {locked
+          ? "Жеребьёвка проведена, данные доставки зафиксированы."
+          : !open
+            ? "Приём анкет закрыт."
+            : "Домашний адрес не указывайте."}
+      </p>
+      <fieldset disabled={locked || busy} className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1 text-sm">
+            <Label htmlFor="profile-city">Город</Label>
+            <CitySelect
+              id="profile-city"
+              value={city}
+              onChange={setCity}
+              disabled={locked || busy}
+            />
+          </div>
+          <label className="space-y-1 text-sm">
+            Трек
+            <select
+              id="profile-track"
+              value={track}
+              onChange={(e) => setTrack(e.target.value as "local" | "country")}
+              className="h-9 w-full rounded-md border bg-background px-2"
+            >
+              <option value="local">Рядом</option>
+              <option value="country">Через всю страну</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            Площадка (необязательно)
+            <Input name="site" maxLength={120} defaultValue={p.site} />
+          </label>
+          <label className="space-y-1 text-sm">
+            Смена (необязательно)
+            <Input name="shift" maxLength={120} defaultValue={p.shift} />
+          </label>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {track === "local"
+            ? "Без площадки — обмен с участниками своего города, которые тоже её не указали. Указанные площадка и смена разделяют группы."
+            : "Коллега из другого города. Подготовьте подарок из своего региона и открытку «откуда это»."}
+        </p>
+        {track === "country" && (
+          <label className="block space-y-1 text-sm">
+            Пункт выдачи: оператор, город, код или адрес ПВЗ
+            <Input
+              name="pickupPoint"
+              required
+              maxLength={500}
+              defaultValue={p.pickupPoint}
+            />
+          </label>
+        )}
+        <label className="block space-y-1 text-sm">
+          Пара пожеланий
+          <textarea
+            name="wishes"
+            required
+            maxLength={2000}
+            rows={3}
+            defaultValue={p.wishes}
+            className="w-full rounded-md border bg-background p-2"
+          />
+        </label>
+        <label className="flex gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="reserveVolunteer"
+            defaultChecked={p.reserveVolunteer}
+          />
+          Готов(а) помочь как Санта-резерв, если кому-то не дойдёт подарок
+        </label>
+        <label className="flex gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="consent"
+            defaultChecked={!!p.consentAt}
+          />
+          Участвую добровольно и согласен(на), что организатор, координатор и
+          мой Санта увидят нужные для передачи подарка данные
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Чтобы отказаться до жеребьёвки, снимите согласие и сохраните анкету.
+          После жеребьёвки обратитесь к организатору.
+        </p>
+        <Button disabled={busy || !city}>
+          {busy ? "Сохраняем…" : "Сохранить анкету"}
+        </Button>
+      </fieldset>
+      {message && (
+        <p role="status" className="text-sm">
+          {message}
+        </p>
+      )}
+    </form>
+  );
+}

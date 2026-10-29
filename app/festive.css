@@ -1,0 +1,537 @@
+/* Palette and typography from slides 1, 3, 6 and 10. Scoped to the public pages. */
+.festive-shell {
+  --background: #0b1730;
+  --foreground: #fff3d6;
+  --primary: #ffc857;
+  --primary-foreground: #0b1730;
+  --muted-foreground: #b8c6e4;
+  --border: #2c3e60;
+  --ring: #ffc857;
+  --garland-land: #192e52;
+  --garland-coast: #405a85;
+  min-height: 100dvh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  line-height: 1.55;
+}
+.festive-container {
+  width: min(1200px, calc(100% - 64px));
+  margin-inline: auto;
+}
+.festive-shell a {
+  text-underline-offset: 5px;
+}
+.festive-shell a:focus-visible {
+  outline: 3px solid #ffc857;
+  outline-offset: 5px;
+}
+.festive-skip {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  z-index: 10;
+  padding: 12px 20px;
+  background: #ffc857;
+  color: #0b1730;
+  transform: translateY(-180%);
+}
+.festive-skip:focus {
+  transform: translateY(0);
+}
+.festive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-block: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.festive-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.festive-brand-icon {
+  border-radius: 10px;
+}
+.festive-brand small {
+  display: block;
+  color: #b8c6e4;
+  font-size: 12px;
+  font-weight: 400;
+}
+.festive-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  font-size: 15px;
+  color: #b8c6e4;
+}
+.festive-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 4px;
+}
+.festive-nav a:hover {
+  color: #fff3d6;
+}
+.festive-nav .festive-nav-account {
+  padding-inline: 16px;
+  border: 1px solid #63769c;
+  border-radius: 8px;
+  color: #fff3d6;
+}
+.festive-main {
+  padding-bottom: 64px;
+}
+.festive-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 48px;
+  padding-block: 64px 56px;
+}
+.festive-eyebrow {
+  margin-bottom: 16px;
+  color: #ffc857;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.festive-hero h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(44px, 5.5vw, 78px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+.festive-hero h1 span {
+  display: block;
+}
+.festive-hero-lead {
+  margin-top: 28px;
+  max-width: 570px;
+  color: #ffc857;
+  font-size: clamp(21px, 2vw, 27px);
+  line-height: 1.35;
+}
+.festive-hero-description {
+  max-width: 540px;
+  margin-top: 20px;
+  color: #b8c6e4;
+  font-size: 18px;
+  line-height: 1.65;
+}
+.festive-hero-art {
+  width: 100%;
+  max-width: 400px;
+  justify-self: center;
+}
+.festive-hero-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.festive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+.festive-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 12px 22px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.festive-button--primary {
+  background: #ffc857;
+  color: #0b1730;
+}
+.festive-button--primary:hover {
+  background: #ffda8a;
+}
+.festive-button--secondary {
+  border-color: #63769c;
+  color: #fff3d6;
+}
+.festive-button--secondary:hover {
+  border-color: #ffc857;
+  background: #142541;
+}
+.festive-hero-note {
+  margin-top: 18px;
+  color: #b8c6e4;
+  font-size: 14px;
+}
+.festive-dates {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+  padding-block: 24px;
+  border-block: 1px solid var(--border);
+}
+.festive-dates dt {
+  color: #b8c6e4;
+  font-size: 14px;
+}
+.festive-dates dd {
+  margin-top: 4px;
+  font-size: 23px;
+  font-weight: 700;
+  color: #ffc857;
+}
+.festive-dates > div:nth-child(2) dd {
+  color: #ff7e84;
+}
+.festive-dates > div:nth-child(3) dd {
+  color: #49c58b;
+}
+.festive-dates > div:nth-child(4) dd {
+  color: #7cc8ff;
+}
+.festive-calendar-note {
+  margin-top: 12px;
+  color: #b8c6e4;
+  font-size: 13px;
+}
+.festive-map-section {
+  padding-top: 64px;
+  scroll-margin-top: 24px;
+}
+.festive-shell .garland-overview-heading {
+  font-size: clamp(27px, 3vw, 38px);
+  letter-spacing: -0.02em;
+}
+.festive-shell .garland-map-canvas {
+  background: #101b33;
+  border-color: #30466b;
+  border-radius: 16px;
+}
+.garland-map-canvas {
+  background: #101b33;
+}
+.garland-russia-svg {
+  display: block;
+  height: auto;
+}
+.garland-ring-lights {
+  filter: drop-shadow(0 0 2px currentColor);
+  animation:
+    garland-light-chase 3.2s linear infinite,
+    garland-light-shimmer 5.6s ease-in-out infinite;
+  animation-play-state: running;
+}
+.garland-map-paused .garland-ring-lights {
+  animation-play-state: paused;
+}
+@keyframes garland-light-chase {
+  from {
+    stroke-dashoffset: var(--garland-light-offset);
+  }
+  to {
+    stroke-dashoffset: calc(var(--garland-light-offset) - 16px);
+  }
+}
+@keyframes garland-light-shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.garland-motion-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+.garland-motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #30466b;
+  border-radius: 999px;
+  background: #101b33;
+  color: #b8c6e4;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.garland-motion-toggle:hover {
+  border-color: #63769c;
+  color: #fff3d6;
+}
+.garland-motion-toggle:focus-visible {
+  outline: 2px solid #ffc857;
+  outline-offset: 3px;
+}
+.garland-city-received {
+  filter: drop-shadow(0 0 7px #fbbf24);
+}
+.garland-map-city-label {
+  paint-order: stroke;
+  stroke: #101b33;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.festive-map-locked {
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.festive-map-locked h2 {
+  margin-bottom: 12px;
+  font-size: 30px;
+  font-weight: 700;
+}
+.festive-map-locked p {
+  margin-bottom: 20px;
+  color: #b8c6e4;
+}
+.festive-how,
+.festive-tracks {
+  padding-top: 80px;
+  scroll-margin-top: 32px;
+}
+.festive-how h2,
+.festive-tracks h2 {
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.festive-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px;
+  padding: 0;
+  margin-top: 36px;
+  list-style: none;
+}
+.festive-steps li {
+  min-width: 0;
+  padding-top: 20px;
+  border-top: 1px solid #3a5075;
+}
+.festive-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.festive-step-top img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+.festive-step-top span {
+  color: #8d9dbf;
+  font-size: 14px;
+}
+.festive-steps h3 {
+  margin-bottom: 12px;
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+.festive-steps p {
+  color: #b8c6e4;
+  font-size: 16px;
+}
+.festive-track-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 32px;
+}
+.festive-track {
+  padding: 36px;
+  border: 1px solid #30466b;
+  border-radius: 16px;
+}
+.festive-track--near {
+  background: #eef2f8;
+  border-color: #d3dbe8;
+  color: #142341;
+}
+.festive-track--country {
+  background: #14233e;
+}
+.festive-track-kicker {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.festive-track h3 {
+  margin-bottom: 20px;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.festive-track--country h3 {
+  color: #ffc857;
+}
+.festive-track > p:last-child {
+  max-width: 460px;
+  font-size: 18px;
+}
+.festive-track--near > p {
+  color: #3e4b66;
+}
+.festive-track--country > p {
+  color: #b8c6e4;
+}
+.festive-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 28px;
+  padding-block: 28px 36px;
+  border-top: 1px solid var(--border);
+  color: #b8c6e4;
+  font-size: 14px;
+}
+.festive-map-intro {
+  padding-block: 44px 32px;
+}
+.festive-map-intro h1 {
+  font-size: clamp(30px, 4vw, 48px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.festive-map-intro > p:last-child {
+  margin-top: 14px;
+  color: #b8c6e4;
+  font-size: 19px;
+}
+@media (min-width: 1500px) {
+  .festive-container {
+    width: min(1280px, calc(100% - 96px));
+  }
+}
+@media (max-width: 1000px) {
+  .festive-header {
+    align-items: flex-start;
+  }
+  .festive-nav {
+    gap: 4px 12px;
+    max-width: 540px;
+  }
+  .festive-hero {
+    gap: 24px;
+  }
+  .festive-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px;
+  }
+}
+@media (max-width: 700px) {
+  .garland-map-city-label {
+    display: none;
+  }
+  .festive-container {
+    width: calc(100% - 32px);
+  }
+  .festive-header {
+    flex-direction: column;
+    gap: 16px;
+    padding-block: 20px 16px;
+  }
+  .festive-nav {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 4px 16px;
+    font-size: 14px;
+  }
+  .festive-nav .festive-nav-account {
+    margin-left: auto;
+    padding-inline: 10px;
+  }
+  .festive-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: 36px 28px;
+    gap: 28px;
+  }
+  .festive-hero h1 {
+    font-size: clamp(42px, 9vw, 60px);
+  }
+  .festive-hero-lead {
+    margin-top: 22px;
+  }
+  .festive-hero-description {
+    font-size: 16px;
+    margin-top: 16px;
+  }
+  .festive-hero-art {
+    max-width: 230px;
+  }
+  .festive-actions {
+    margin-top: 24px;
+  }
+  .festive-button {
+    flex: 1 1 190px;
+  }
+  .festive-dates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .festive-dates dd {
+    font-size: 21px;
+  }
+  .festive-map-section,
+  .festive-how,
+  .festive-tracks {
+    padding-top: 44px;
+  }
+  .festive-track-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .festive-track {
+    padding: 26px;
+  }
+  .festive-map-locked {
+    padding: 24px;
+  }
+  .festive-main {
+    padding-bottom: 44px;
+  }
+}
+@media (max-width: 420px) {
+  .festive-nav {
+    gap: 4px 12px;
+  }
+  .festive-nav .festive-nav-account {
+    margin-left: 0;
+  }
+  .festive-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .festive-button {
+    transition: none;
+  }
+}

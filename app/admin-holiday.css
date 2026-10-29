@@ -1,0 +1,439 @@
+/* Shared cabinet/auth theme; public pages keep their existing palette. */
+.holiday-theme {
+  --background: #faf8f2;
+  --foreground: #303d34;
+  --card: #ffffff;
+  --card-foreground: #303d34;
+  --popover: #ffffff;
+  --popover-foreground: #303d34;
+  --primary: #2d644b;
+  --primary-foreground: #ffffff;
+  --secondary: #f1ede3;
+  --secondary-foreground: #3d5141;
+  --muted: #f4f1e9;
+  --muted-foreground: #687064;
+  --accent: #edf2e9;
+  --accent-foreground: #2d644b;
+  --destructive: #ad3838;
+  --border: #e5dfd1;
+  --input: #86917e;
+  --ring: #3a7456;
+  color-scheme: light;
+  color: var(--foreground);
+}
+
+.admin-holiday {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  padding: 88px 24px 64px;
+  color: var(--foreground);
+  background:
+    radial-gradient(ellipse at 0 0, #f5ecd7 0, transparent 42%),
+    var(--background);
+}
+
+.admin-holiday-container {
+  max-width: 840px;
+  margin-inline: auto;
+}
+
+.admin-holiday-lights {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 80px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.admin-holiday-lights svg {
+  display: block;
+  position: absolute;
+  left: 50%;
+  width: max(100%, 760px);
+  height: 80px;
+  transform: translateX(-50%);
+}
+
+.admin-holiday-bulb {
+  filter: drop-shadow(0 2px 5px currentColor);
+}
+
+.admin-holiday-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-holiday-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 300px;
+}
+
+.admin-holiday-emblem {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid #d6e1d1;
+  border-radius: 16px;
+  color: var(--primary);
+  background: #eaf0e4;
+}
+
+.admin-holiday-kicker {
+  margin-bottom: 4px;
+  color: #766842;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-holiday-header h1 {
+  font-size: clamp(21px, 3vw, 28px);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.admin-holiday-account {
+  min-height: 40px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.admin-holiday .admin-quicklinks {
+  gap: 10px;
+}
+
+.admin-quicklinks a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary);
+  background: #fffdf8;
+  text-decoration: none;
+}
+
+.admin-quicklinks a:hover {
+  border-color: #bcccb6;
+  background: var(--accent);
+}
+
+.admin-holiday .admin-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 5px;
+  border-radius: 15px;
+  background: #f1eee4;
+}
+
+.admin-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.admin-tabs button[aria-pressed="true"] {
+  box-shadow: 0 2px 5px #284b321a;
+}
+
+.holiday-theme [data-slot="card"],
+.holiday-theme .admin-panel .bg-card {
+  border-radius: 18px;
+  box-shadow: 0 4px 18px #4f432b07;
+}
+
+.admin-holiday .admin-panel input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+.admin-holiday a:focus-visible,
+.admin-tabs button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
+.admin-holiday-skip {
+  position: absolute;
+  top: 12px;
+  left: 24px;
+  z-index: 10;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  transform: translateY(-160%);
+}
+
+.admin-holiday-skip:focus {
+  transform: translateY(0);
+}
+
+.holiday-header-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.holiday-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 100%;
+  flex-shrink: 1;
+}
+
+.holiday-theme [data-slot="button"] {
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+.holiday-theme [data-slot="input"],
+.holiday-theme [data-slot="select-trigger"],
+.holiday-theme [data-slot="datetime-picker"],
+.holiday-theme select {
+  min-height: 44px;
+  border-radius: 10px;
+  background-color: var(--card);
+}
+
+.holiday-theme .phone-field {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.holiday-theme .phone-field .phone-number {
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.holiday-theme .phone-field .phone-country {
+  flex: 0 0 52px;
+  width: 52px;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.holiday-theme input[type="time"] {
+  min-height: 40px;
+  border-radius: 8px;
+}
+
+.holiday-theme textarea {
+  border-radius: 10px;
+  background-color: var(--card);
+  line-height: 1.6;
+}
+
+.holiday-theme input[type="checkbox"],
+.holiday-theme input[type="radio"] {
+  accent-color: var(--primary);
+}
+
+.holiday-theme :is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.holiday-theme input:autofill {
+  -webkit-text-fill-color: var(--foreground);
+}
+
+.holiday-theme .holiday-coordinator-card {
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: 0 4px 18px #4f432b07;
+}
+
+.holiday-coordinator-filters {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.holiday-coordinator-filters a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary);
+  background: var(--card);
+  text-decoration: none;
+}
+
+.holiday-coordinator-filters a[aria-current="page"] {
+  border-color: var(--primary);
+  background: var(--accent);
+  font-weight: 600;
+}
+
+.holiday-auth .holiday-auth-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 460px;
+  min-height: calc(100svh - 152px);
+  gap: 24px;
+}
+
+.holiday-auth-brand {
+  text-align: center;
+}
+
+.holiday-auth-brand a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.holiday-auth-brand p {
+  margin-top: 12px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.holiday-auth-main {
+  width: 100%;
+}
+
+.holiday-auth .holiday-auth-card {
+  border-top: 3px solid #d9a943;
+  box-shadow: 0 12px 36px #4f432b0d;
+}
+
+.holiday-auth-card h1 {
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.holiday-auth-card form {
+  gap: 20px;
+}
+
+.holiday-auth-card button[type="submit"] {
+  width: 100%;
+}
+
+.holiday-auth-card a,
+.holiday-auth-back a {
+  color: var(--primary);
+  text-underline-offset: 3px;
+}
+
+.holiday-auth-back {
+  text-align: center;
+  font-size: 14px;
+}
+
+.holiday-portal {
+  border-color: var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px #4f432b26;
+}
+
+.holiday-portal[data-slot="dialog-content"] {
+  width: calc(100% - 32px);
+  border-radius: 18px;
+}
+
+.holiday-portal [data-slot="dialog-header"] {
+  padding-right: 36px;
+}
+
+.holiday-portal .holiday-dialog-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+}
+
+.holiday-portal [role="option"] {
+  min-height: 40px;
+  border-radius: 8px;
+}
+
+.holiday-portal.city-select-popover [role="option"] {
+  min-height: 44px;
+}
+
+.holiday-dialog-overlay {
+  background-color: #263c31a6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holiday-theme *,
+  .holiday-dialog-overlay {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-holiday {
+    padding: 80px 16px 40px;
+  }
+  .admin-holiday-header {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .admin-holiday-identity {
+    gap: 10px;
+  }
+  .admin-holiday-emblem {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+  .admin-holiday-kicker {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .holiday-header-actions {
+    justify-content: flex-start;
+    flex-shrink: 1;
+    width: 100%;
+  }
+  .holiday-auth .holiday-auth-container {
+    min-height: calc(100svh - 120px);
+    gap: 20px;
+  }
+  .admin-holiday .admin-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
