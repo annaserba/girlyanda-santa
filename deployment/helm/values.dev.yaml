@@ -1,0 +1,3 @@
+# Environment-specific Vault path. Origin/image are supplied by Argo parameters.
+envs:
+  EXTERNAL_SECRETS_PATH: gsp/girlyanda/dev

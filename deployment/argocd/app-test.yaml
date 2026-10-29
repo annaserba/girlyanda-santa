@@ -1,0 +1,61 @@
+{
+  "apiVersion": "argoproj.io/v1alpha1",
+  "kind": "Application",
+  "metadata": {
+    "name": "__APP_NAME__",
+    "namespace": "argocd"
+  },
+  "spec": {
+    "project": "default",
+    "destination": {
+      "server": "https://kubernetes.default.svc",
+      "namespace": "__NAMESPACE__"
+    },
+    "syncPolicy": {
+      "syncOptions": [
+        "CreateNamespace=true"
+      ]
+    },
+    "source": {
+      "path": "deployment/helm/charts/nxs-universal-chart",
+      "repoURL": "__REPOSITORY_URL__",
+      "targetRevision": "__REVISION__",
+      "helm": {
+        "valueFiles": [
+          "../../values.default.yaml",
+          "../../values.test.yaml"
+        ],
+        "parameters": [
+          {
+            "name": "image.name",
+            "value": "__IMAGE__"
+          },
+          {
+            "name": "image.tag",
+            "value": "__IMAGE_TAG__"
+          },
+          {
+            "name": "envs.BETTER_AUTH_URL",
+            "value": "__APP_URL__"
+          },
+          {
+            "name": "envs.NEXT_PUBLIC_APP_URL",
+            "value": "__APP_URL__"
+          },
+          {
+            "name": "envs.EXTERNAL_SECRETS_PATH",
+            "value": "__VAULT_PATH__"
+          },
+          {
+            "name": "ingresses.app.hosts[0].hostname",
+            "value": "__HOSTNAME__"
+          },
+          {
+            "name": "ingresses.app.extraTls[0].hosts[0]",
+            "value": "__HOSTNAME__"
+          }
+        ]
+      }
+    }
+  }
+}

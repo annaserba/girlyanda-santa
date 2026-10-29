@@ -1,0 +1,61 @@
+# syntax=docker/dockerfile:1
+
+############################
+# 1. Install dependencies  #
+############################
+ARG NODE_IMAGE=node:22-alpine
+FROM ${NODE_IMAGE} AS deps
+WORKDIR /app
+# libc6-compat helps some native deps on Alpine.
+ARG ALPINE_MIRROR
+RUN if [ -n "$ALPINE_MIRROR" ]; then sed -i "s|https://dl-cdn.alpinelinux.org/alpine|$ALPINE_MIRROR|g" /etc/apk/repositories; fi
+RUN apk add --no-cache libc6-compat
+COPY package.json package-lock.json ./
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN npm ci --registry="$NPM_REGISTRY"
+
+############################
+# 2. Build the app         #
+############################
+FROM ${NODE_IMAGE} AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* are inlined into the client bundle at build time.
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+RUN npm run build
+# Bundle the migration runner into a single self-contained JS file so the
+# runtime image needs no extra node_modules for migrations.
+RUN npx esbuild scripts/migrate.ts \
+  --bundle --platform=node --format=cjs --outfile=dist-migrate.cjs
+
+############################
+# 3. Runtime image         #
+############################
+FROM ${NODE_IMAGE} AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+# Next.js standalone server output.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Static assets (retired-worker cleanup, manifest icon, bundled flags).
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Migration assets: SQL files + the bundled runner.
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/dist-migrate.cjs ./dist-migrate.cjs
+
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# Apply pending migrations (idempotent), then start the server.
+CMD ["sh", "-c", "node dist-migrate.cjs && node server.js"]

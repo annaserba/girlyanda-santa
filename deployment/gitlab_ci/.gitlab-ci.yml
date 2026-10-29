@@ -1,0 +1,193 @@
+# Same shared Docker build/release infrastructure as main/hub_frontend.
+include:
+  - project: main/template/common_gitlab_ci
+    ref: main
+    file:
+      - build/docker_frontend.yml
+      - stage/create-tag.yml
+
+stages:
+  - test
+  - build
+  - create-tag
+  - prepare-deploy
+  - deploy
+
+variables:
+  DOCKERFILE: Dockerfile
+  REGISTRY_IMAGE_DEV: $REGISTRY/gsp-girlyanda-dev/app
+  REGISTRY_IMAGE_TEST: $REGISTRY/gsp-girlyanda-test/app
+  REGISTRY_IMAGE_PROD: $REGISTRY/gsp-girlyanda/app
+  CI_NODE_IMAGE: node:22-alpine
+  CI_POSTGRES_IMAGE: postgres:17-alpine
+  CI_HELM_IMAGE: alpine/helm:3.16.4
+  NPM_REGISTRY: https://registry.npmjs.org
+  GIRLYANDA_ENABLE_CD: "false"
+  NPM_CONFIG_CACHE: $CI_PROJECT_DIR/.npm
+  NEXT_TELEMETRY_DISABLED: "1"
+
+.node-check:
+  image: $CI_NODE_IMAGE
+  before_script:
+    - if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
+    - npm ci --prefer-offline
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  rules:
+    - when: on_success
+
+typecheck-and-unit:
+  extends: .node-check
+  stage: test
+  script:
+    - npm run typecheck
+    - RUN_DB_TESTS=0 npm test
+
+postgres-integration:
+  extends: .node-check
+  stage: test
+  services:
+    - name: $CI_POSTGRES_IMAGE
+      alias: postgres
+  variables:
+    POSTGRES_USER: santa_ci
+    POSTGRES_PASSWORD: verification-only
+    POSTGRES_DB: santa_verification
+    DATABASE_URL: postgresql://santa_ci:verification-only@postgres:5432/santa_verification
+  script:
+    - node deployment/ci/wait-for-db.mjs
+    - npm run test:db
+
+helm-check:
+  image:
+    name: $CI_HELM_IMAGE
+    entrypoint: [""]
+  stage: test
+  before_script: []
+  script:
+    - sh deployment/ci/helm-check.sh
+
+# Keep the shared runner/registry-login settings, replace only the build script.
+.build:
+  stage: build
+  needs: [typecheck-and-unit, postgres-integration, helm-check]
+  script:
+    - sh deployment/ci/build.sh
+  retry: 2
+
+build-dev:
+  extends: .build
+  variables:
+    REGISTRY_IMAGE: $REGISTRY_IMAGE_DEV
+    IMAGE_TAG: $CI_COMMIT_SHA
+    APP_URL: $CI_ENV_URL_DEV
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+
+build-test:
+  extends: .build
+  variables:
+    REGISTRY_IMAGE: $REGISTRY_IMAGE_TEST
+    IMAGE_TAG: $CI_COMMIT_SHA
+    APP_URL: $CI_ENV_URL_TEST
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false
+
+build-prod:
+  extends: .build
+  variables:
+    REGISTRY_IMAGE: $REGISTRY_IMAGE_PROD
+    IMAGE_TAG: $CI_COMMIT_TAG
+    APP_URL: $CI_ENV_URL_PROD
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED == "true"
+      when: manual
+      allow_failure: false
+
+.prepare-deploy:
+  image: $CI_NODE_IMAGE
+  stage: prepare-deploy
+  before_script: []
+  script:
+    - node deployment/argocd/render.mjs "$DEPLOY_ENV" .local-deployment
+  artifacts:
+    paths:
+      - .local-deployment/
+    expire_in: 30 days
+
+prepare-dev:
+  extends: .prepare-deploy
+  needs: [build-dev]
+  variables:
+    DEPLOY_ENV: dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+
+prepare-test:
+  extends: .prepare-deploy
+  needs: [build-test]
+  variables:
+    DEPLOY_ENV: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+prepare-prod:
+  extends: .prepare-deploy
+  needs: [build-prod]
+  variables:
+    DEPLOY_ENV: prod
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED == "true"
+
+# Enable only after the platform team configures the repository, Vault and Argo.
+# No kubeconfig is stored in this project. All writes go through Argo's API.
+.deploy:
+  image: $CI_NODE_IMAGE
+  stage: deploy
+  before_script: []
+  script:
+    - node deployment/argocd/deploy.mjs "$DEPLOY_ENV" ".local-deployment/app-$DEPLOY_ENV.yaml"
+  resource_group: girlyanda-$DEPLOY_ENV
+
+deploy-dev:
+  extends: .deploy
+  needs: [prepare-dev]
+  variables:
+    DEPLOY_ENV: dev
+  environment:
+    name: development
+    url: $CI_ENV_URL_DEV
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev" && $GIRLYANDA_ENABLE_CD == "true"
+
+deploy-test:
+  extends: .deploy
+  needs: [prepare-test]
+  variables:
+    DEPLOY_ENV: test
+  environment:
+    name: testing
+    url: $CI_ENV_URL_TEST
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $GIRLYANDA_ENABLE_CD == "true"
+      when: manual
+      allow_failure: false
+
+deploy-prod:
+  extends: .deploy
+  needs: [prepare-prod]
+  variables:
+    DEPLOY_ENV: prod
+  environment:
+    name: production
+    url: $CI_ENV_URL_PROD
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED == "true" && $GIRLYANDA_ENABLE_CD == "true"
+      when: manual
+      allow_failure: false
