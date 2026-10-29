@@ -16,6 +16,7 @@ import {
 import { PhoneInput } from "@/components/phone-input";
 import { normalizeRussianPhone, RUSSIAN_PHONE_ERROR } from "@/lib/phone";
 import { CitySelect } from "@/components/city-select";
+import { participantNameSchema } from "@/lib/event-config";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -39,6 +40,11 @@ export default function SignupPage() {
       setError("Выберите город РФ из списка.");
       return;
     }
+    const fullName = participantNameSchema.safeParse(name);
+    if (!fullName.success) {
+      setError(fullName.error.issues[0].message);
+      return;
+    }
     setLoading(true);
 
     try {
@@ -46,7 +52,7 @@ export default function SignupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
+          name: fullName.data,
           email,
           password,
           phone: normalizedPhone,
@@ -80,7 +86,7 @@ export default function SignupPage() {
               <h1>Регистрация</h1>
             </CardTitle>
             <CardDescription>
-              Укажите свой номер телефона, имя, город и электронную почту.
+              Укажите свой номер телефона, ФИО, город и электронную почту.
               Подойдёт личный или рабочий адрес. После создания аккаунта
               заполните анкету и подтвердите участие в личном кабинете.
             </CardDescription>
@@ -101,14 +107,22 @@ export default function SignupPage() {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="name">Имя и фамилия</Label>
+                <Label htmlFor="name">ФИО</Label>
                 <Input
                   id="name"
                   autoComplete="name"
                   required
+                  maxLength={200}
+                  aria-describedby="signup-name-help"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
+                <p
+                  id="signup-name-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Фамилия и имя полностью, отчество — при наличии.
+                </p>
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="city">Город РФ</Label>

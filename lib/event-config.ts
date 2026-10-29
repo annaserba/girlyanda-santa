@@ -45,8 +45,19 @@ export const EVENT_DEFAULTS: EventConfig = {
   locations: [],
 };
 
+const nameTextSchema = z
+  .string({ error: "Укажите фамилию и имя получателя полностью." })
+  .transform((name) => name.normalize("NFKC").trim().replace(/\s+/g, " "))
+  .pipe(z.string().max(200, "ФИО — не более 200 символов."));
+
+export const participantNameSchema = nameTextSchema.refine((name) => {
+  const parts = name.split(" ");
+  return parts.length >= 2 && parts.every((part) => /\p{L}/u.test(part));
+}, "Укажите фамилию и имя полностью, отчество — при наличии.");
+
 export const profileSchema = z
   .object({
+    name: nameTextSchema.default(""),
     city: z.string().trim().min(1, "Укажите город.").max(120),
     site: z
       .string()
@@ -60,6 +71,13 @@ export const profileSchema = z
     reserveVolunteer: z.boolean().default(false),
     consent: z.boolean(),
   })
+  .refine(
+    (v) => !v.consent || participantNameSchema.safeParse(v.name).success,
+    {
+      message: "Укажите фамилию и имя полностью, отчество — при наличии.",
+      path: ["name"],
+    },
+  )
   .refine((v) => v.track !== "local" || !!v.site, {
     message: "Для трека «Рядом» укажите площадку.",
     path: ["site"],
@@ -70,6 +88,7 @@ export const profileSchema = z
   });
 
 export function profileReady(p: {
+  name: string;
   city: string;
   site: string;
   shift: string;

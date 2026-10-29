@@ -5,12 +5,14 @@ import {
   eventConfigSchema,
   profileSchema,
   profileReady,
+  participantNameSchema,
 } from "./event-config";
 import { parseMemberList } from "./import-members";
 import { summarizeGifts } from "./garland-summary";
 import { mayUpdateGift } from "./gift-rules";
 
 const profile = {
+  name: "Иванова Анна",
   city: "Уфа",
   site: "Склад",
   shift: "",
@@ -21,6 +23,35 @@ const profile = {
   consent: true,
 };
 describe("participation and importing", () => {
+  it.each([
+    "Иванова Анна",
+    "Иванова Анна Сергеевна",
+    "Ли Бо",
+    "Anne-Marie Smith",
+  ])("accepts full recipient names with an optional patronymic: %s", (name) => {
+    expect(participantNameSchema.parse(name)).toBe(name);
+  });
+  it.each(["", "   ", "local_user", "Анна", undefined])(
+    "requires a recipient's full name: %s",
+    (name) => {
+      expect(profileSchema.safeParse({ ...profile, name }).success).toBe(false);
+      expect(profileReady({ ...profile, name: name ?? "" })).toBe(false);
+    },
+  );
+  it("normalizes spacing without inventing a patronymic", () => {
+    expect(participantNameSchema.parse("  Иванова   Анна  ")).toBe(
+      "Иванова Анна",
+    );
+    expect(() => parseMemberList("Анна;;Уфа;Склад;;Рядом;;Книга")).toThrow(
+      "ФИО",
+    );
+  });
+  it("allows declining participation without providing a new full name", () => {
+    expect(
+      profileSchema.safeParse({ ...profile, name: "", consent: false }).success,
+    ).toBe(true);
+    expect(profileReady({ ...profile, name: "" })).toBe(false);
+  });
   it.each(["", "   ", undefined])(
     "requires a site for a local profile: %s",
     (site) => {
@@ -55,12 +86,14 @@ describe("participation and importing", () => {
     ).toBe(false);
   });
   it("imports an intercity profile with no site and rejects a local one", () => {
-    const [member] = parseMemberList("Анна;;Уфа;;;Страна;ПВЗ 15;Люблю чай");
+    const [member] = parseMemberList(
+      "Иванова Анна;;Уфа;;;Страна;ПВЗ 15;Люблю чай",
+    );
     expect(member.site).toBe("");
     expect(profileReady(member)).toBe(true);
-    expect(() => parseMemberList("Анна;;Уфа;;;Рядом;;Люблю чай")).toThrow(
-      "площадку",
-    );
+    expect(() =>
+      parseMemberList("Иванова Анна;;Уфа;;;Рядом;;Люблю чай"),
+    ).toThrow("площадку");
   });
   it("requires a pickup point for intercity but not local", () => {
     expect(
@@ -73,14 +106,14 @@ describe("participation and importing", () => {
   });
   it("parses an eight-column coordinator list", () => {
     const list = parseMemberList(
-      "Анна;;Уфа;Склад;;Рядом;;Люблю чай\nИван;i@corp.test;Томск;Офис;;Страна;ПВЗ 15;Книги",
+      "Иванова Анна;;Уфа;Склад;;Рядом;;Люблю чай\nПетров Иван;i@corp.test;Томск;Офис;;Страна;ПВЗ 15;Книги",
     );
     expect(list).toHaveLength(2);
     expect(list[0].consent).toBe(true);
     expect(list[1].track).toBe("country");
   });
   it("rejects malformed lines instead of shifting columns", () => {
-    expect(() => parseMemberList("Анна;Уфа;Рядом")).toThrow("8 полей");
+    expect(() => parseMemberList("Иванова Анна;Уфа;Рядом")).toThrow("8 полей");
   });
   it("validates ordering of proposed dates", () => {
     expect(

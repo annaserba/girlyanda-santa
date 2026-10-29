@@ -61,6 +61,13 @@ beforeEach(() => {
 });
 
 describe("open registration with Russian contact numbers", () => {
+  it("requires the full name before creating an account", async () => {
+    const response = await POST(request({ ...registration, name: "nickname" }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain("фамилию и имя");
+    expect(mocks.signUpEmail).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
   it.each([
     "anna@personal.example",
     "ivan@personal.example",

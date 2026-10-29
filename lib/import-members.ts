@@ -3,7 +3,6 @@ import { canonical, profileSchema } from "./event-config";
 
 export const importMemberSchema = z
   .object({
-    name: z.string().trim().min(1).max(200),
     email: z.union([z.literal(""), z.string().trim().email().toLowerCase()]),
   })
   .and(profileSchema);
@@ -41,7 +40,7 @@ export function parseMemberList(text: string) {
       });
       if (!parsed.success)
         throw new Error(
-          `Строка ${index + 1}: проверьте имя, почту, город, площадку (обязательна для «Рядом»), трек, ПВЗ и пожелания.`,
+          `Строка ${index + 1}: проверьте ФИО (фамилия и имя полностью), почту, город, площадку (обязательна для «Рядом»), трек, ПВЗ и пожелания.`,
         );
       return parsed.data;
     });

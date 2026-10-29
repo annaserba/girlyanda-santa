@@ -41,7 +41,7 @@ beforeEach(() => {
   mocks.requireAdmin.mockResolvedValue(null);
   mocks.select.mockReturnValue({ from: mocks.from });
   mocks.getEventConfig.mockResolvedValue({ registrationOpen: false, budget: 1000, ringPolicy: "tracks" });
-  mocks.from.mockResolvedValue([1, 2, 3].map((id) => ({ id, name: `Человек ${id}`, city: "Уфа", site: "Склад", shift: "", track: "local", pickupPoint: "", wishes: "Чай", consentAt: new Date(), reserveVolunteer: false })));
+  mocks.from.mockResolvedValue([1, 2, 3].map((id) => ({ id, name: `Тестовый Участник-${id}`, city: "Уфа", site: "Склад", shift: "", track: "local", pickupPoint: "", wishes: "Чай", consentAt: new Date(), reserveVolunteer: false })));
   mocks.insert.mockReturnValue({ values: mocks.values });
   mocks.values.mockReturnValue({ returning: mocks.returning });
   mocks.returning.mockResolvedValue([{ id: 1, allowSelfDraw: false }]);

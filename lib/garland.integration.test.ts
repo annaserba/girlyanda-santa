@@ -34,6 +34,8 @@ import { PUT as updateEvent } from "@/app/api/event/route";
 import { GET as listSites, PATCH as editSites } from "@/app/api/sites/route";
 import { POST as assignCoordinator } from "@/app/api/coordinators/route";
 import { getSiteOptions, resolveSiteName } from "./sites";
+import { renderToStaticMarkup } from "react-dom/server";
+import { RecipientDetails } from "./gift-display";
 
 async function ensureSite(city: string, name: string) {
   await db.transaction(async (tx) => {
@@ -51,6 +53,9 @@ function jsonRequest(body: object) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+function profileRequest(body: object) {
+  return jsonRequest({ name: "Иванова Анна", ...body });
 }
 function giftRequest(id: number, body: object) {
   return updateGift(jsonRequest(body), {
@@ -103,7 +108,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       await db.insert(schema.participant).values(
         [1, 2, 3].map((n) => ({
           userId: `u${n}`,
-          name: `Человек ${n}`,
+          name: `Тестовый Участник-${n}`,
           email: `u${n}@corp.test`,
           city: "Уфа",
           site: "Склад",
@@ -121,6 +126,106 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
     });
     afterAll(async () => {
       await db.$client.end();
+    });
+
+    it("saves the recipient's full name and shows it to their Santa without changing the account", async () => {
+      await config(true);
+      state.actor = { id: "u1", role: "user" };
+      state.participant = (
+        await db
+          .select()
+          .from(schema.participant)
+          .where(eq(schema.participant.id, 1))
+      )[0];
+      const response = await updateProfile(
+        profileRequest({
+          name: " Иванова   Анна Сергеевна ",
+          city: "Уфа",
+          site: "Склад",
+          track: "local",
+          wishes: "Книга",
+          consent: true,
+        }),
+      );
+      expect(response.status).toBe(200);
+      const [saved] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      expect(saved.name).toBe("Иванова Анна Сергеевна");
+      expect(saved.userId).toBe("u1");
+      expect(
+        (await db.select().from(schema.user).where(eq(schema.user.id, "u1")))[0]
+          .name,
+      ).toBe("u1");
+      const html = renderToStaticMarkup(
+        RecipientDetails({ person: saved, local: true }),
+      );
+      expect(html).toContain("Иванова Анна Сергеевна");
+      const snapshot = await getGarlandSnapshot(EVENT_DEFAULTS);
+      expect(JSON.stringify(snapshot)).not.toContain("Иванова");
+    });
+    it("rejects missing names and nicknames without replacing the existing recipient name", async () => {
+      await config(true);
+      state.actor = { id: "u1", role: "user" };
+      const [before] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      state.participant = before;
+      for (const name of [undefined, "", "local_user"]) {
+        const response = await updateProfile(
+          profileRequest({
+            name,
+            city: "Уфа",
+            site: "Склад",
+            track: "local",
+            wishes: "Книга",
+            consent: true,
+          }),
+        );
+        expect(response.status).toBe(400);
+        expect((await response.json()).error).toContain("фамилию и имя");
+      }
+      expect(
+        (
+          await db
+            .select()
+            .from(schema.participant)
+            .where(eq(schema.participant.id, 1))
+        )[0],
+      ).toEqual(before);
+    });
+    it("allows withdrawing a legacy profile without requiring a new full name", async () => {
+      await config(true);
+      await db
+        .update(schema.participant)
+        .set({ name: "local_user" })
+        .where(eq(schema.participant.id, 1));
+      state.actor = { id: "u1", role: "user" };
+      state.participant = (
+        await db
+          .select()
+          .from(schema.participant)
+          .where(eq(schema.participant.id, 1))
+      )[0];
+      const response = await updateProfile(
+        profileRequest({
+          name: "",
+          city: "Уфа",
+          site: "Склад",
+          track: "local",
+          wishes: "Книга",
+          consent: false,
+        }),
+      );
+      expect(response.status).toBe(200);
+      const [saved] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      expect(saved.name).toBe("local_user");
+      expect(saved.consentAt).toBeNull();
     });
 
     it("backfills legacy case variants from profiles and coordinator scopes into one identity", async () => {
@@ -170,7 +275,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
           .where(eq(schema.participant.id, 1))
       )[0];
       const response = await updateProfile(
-        jsonRequest({
+        profileRequest({
           city: "Уфа",
           site: "офис  СЕВЁР",
           track: "local",
@@ -264,18 +369,16 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
     it("merges identities, retains coordinator permissions and leaves gift pairs unchanged", async () => {
       const source = (await getSiteOptions())[0];
       const target = await ensureSite("Уфа", "Офис");
-      await db
-        .insert(schema.participant)
-        .values(
-          [4, 5, 6].map((n) => ({
-            name: `Человек ${n}`,
-            city: "Уфа",
-            site: "Офис",
-            track: "local" as const,
-            wishes: "Чай",
-            consentAt: new Date(),
-          })),
-        );
+      await db.insert(schema.participant).values(
+        [4, 5, 6].map((n) => ({
+          name: `Тестовый Участник-${n}`,
+          city: "Уфа",
+          site: "Офис",
+          track: "local" as const,
+          wishes: "Чай",
+          consentAt: new Date(),
+        })),
+      );
       await db.insert(schema.coordinatorScope).values([
         { userId: "coord", city: "уфа", site: "склад" },
         { userId: "coord", city: "уфа", site: "офис" },
@@ -351,7 +454,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
           .where(eq(schema.participant.id, 1))
       )[0];
       const response = await updateProfile(
-        jsonRequest({
+        profileRequest({
           city: "Уфа",
           site: "СКЛАД",
           track: "local",
@@ -364,7 +467,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       state.actor = { id: "coord", role: "user" };
       const imported = await importMembers(
         jsonRequest({
-          text: "Анна;;Уфа;ТЕРМИНАЛ;;Рядом;;Книга",
+          text: "Петрова Елена;;Уфа;ТЕРМИНАЛ;;Рядом;;Книга",
           consentConfirmed: true,
         }),
       );
@@ -416,7 +519,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       await config(true);
       const imported = await importMembers(
         jsonRequest({
-          text: "Анна;;Уфа;Другая площадка;;Рядом;;Книга",
+          text: "Иванова Анна;;Уфа;Другая площадка;;Рядом;;Книга",
           consentConfirmed: true,
         }),
       );
@@ -623,7 +726,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       expect(
         (
           await updateProfile(
-            jsonRequest({
+            profileRequest({
               city: "Уфа",
               site: "Склад",
               shift: "",
@@ -755,7 +858,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       await db
         .insert(schema.coordinatorScope)
         .values({ userId: "coord", city: "Уфа", site: "Склад" });
-      const text = "Анна;;Уфа;Склад;;Рядом;;Чай";
+      const text = "Иванова Анна;;Уфа;Склад;;Рядом;;Чай";
       expect(
         (await importMembers(jsonRequest({ text, consentConfirmed: false })))
           .status,
@@ -764,7 +867,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         (
           await importMembers(
             jsonRequest({
-              text: "Иван;;Томск;Склад;;Рядом;;Чай",
+              text: "Петров Иван;;Томск;Склад;;Рядом;;Чай",
               consentConfirmed: true,
             }),
           )
@@ -779,7 +882,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         (
           await importMembers(
             jsonRequest({
-              text: `Олег;;Уфа;Склад;;Рядом;;Чай\n${text}`,
+              text: `Сидоров Олег;;Уфа;Склад;;Рядом;;Чай\n${text}`,
               consentConfirmed: true,
             }),
           )
@@ -797,7 +900,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       state.participant = before;
       for (const site of [undefined, "", "   "]) {
         const response = await updateProfile(
-          jsonRequest({
+          profileRequest({
             city: "Уфа",
             site,
             shift: "",
@@ -825,7 +928,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       const before = await db.select().from(schema.participant);
       const response = await importMembers(
         jsonRequest({
-          text: "Олег;;Уфа;Склад;;Рядом;;Книга\nАнна;;Уфа;;;Рядом;;Чай",
+          text: "Сидоров Олег;;Уфа;Склад;;Рядом;;Книга\nИванова Анна;;Уфа;;;Рядом;;Чай",
           consentConfirmed: true,
         }),
       );
@@ -844,7 +947,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
             .where(eq(schema.participant.id, id))
         )[0];
         const response = await updateProfile(
-          jsonRequest({
+          profileRequest({
             city: ["Уфа", "Томск", "Москва"][id - 1],
             ...(id === 1 ? {} : { site: "" }),
             shift: "",
@@ -890,11 +993,12 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         reserveVolunteer: false,
       };
       await config(true);
-      expect((await updateProfile(jsonRequest(body))).status).toBe(200);
+      expect((await updateProfile(profileRequest(body))).status).toBe(200);
       await config(false);
       await executeDraw(await draft());
       expect(
-        (await updateProfile(jsonRequest({ ...body, city: "Томск" }))).status,
+        (await updateProfile(profileRequest({ ...body, city: "Томск" })))
+          .status,
       ).toBe(400);
       expect(
         (

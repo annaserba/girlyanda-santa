@@ -72,6 +72,7 @@ export async function PUT(req: NextRequest) {
       .update(schema.participant)
       .set({
         ...profile,
+        name: profile.name || participant.name,
         site: savedSite,
         consentAt: consent ? new Date() : null,
       })

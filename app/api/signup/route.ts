@@ -5,9 +5,10 @@ import { auth } from "@/lib/auth";
 import { russianPhoneSchema } from "@/lib/phone-schema";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { registrationCitySchema } from "@/lib/registration-city-schema";
+import { participantNameSchema } from "@/lib/event-config";
 
 const signupSchema = z.object({
-  name: z.string().trim().min(1),
+  name: participantNameSchema,
   email: z.string().trim().email().toLowerCase(),
   password: z.string().min(8),
   phone: russianPhoneSchema,
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
           parsed.error.issues.find((issue) => issue.path[0] === "phone")
             ?.message ??
           parsed.error.issues.find((issue) => issue.path[0] === "city")
+            ?.message ??
+          parsed.error.issues.find((issue) => issue.path[0] === "name")
             ?.message ??
           "Проверьте введённые данные.",
       },

@@ -73,7 +73,7 @@ beforeEach(() => {
       return Promise.resolve(
         [1, 2, 3].map((id) => ({
           id,
-          name: `Участник ${id}`,
+          name: `Тестовый Участник-${id}`,
           userId: `u${id}`,
           city: "Уфа",
           site: "Склад",

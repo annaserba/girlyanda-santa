@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CitySelect } from "@/components/city-select";
 import { SiteSelect } from "@/components/site-select";
-import { canonical } from "@/lib/event-config";
+import { canonical, participantNameSchema } from "@/lib/event-config";
 import type { SiteOption } from "@/lib/work-sites";
 
 export function ParticipationForm({
@@ -23,6 +23,8 @@ export function ParticipationForm({
 }) {
   const router = useRouter();
   const [track, setTrack] = useState(p.track ?? "local");
+  const [name, setName] = useState(p.name);
+  const [consent, setConsent] = useState(!!p.consentAt);
   const [city, setCity] = useState(p.city);
   const [site, setSite] = useState(p.site);
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,11 @@ export function ParticipationForm({
       return;
     }
     const data = new FormData(event.currentTarget);
+    const fullName = participantNameSchema.safeParse(name);
+    if (consent && !fullName.success) {
+      setMessage(fullName.error.issues[0].message);
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
@@ -45,13 +52,14 @@ export function ParticipationForm({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: fullName.success ? fullName.data : name.trim(),
           city: data.get("city"),
           site,
           shift: data.get("shift"),
           track,
           pickupPoint: data.get("pickupPoint") ?? "",
           wishes: data.get("wishes"),
-          consent: data.get("consent") === "on",
+          consent,
           reserveVolunteer: data.get("reserveVolunteer") === "on",
         }),
       });
@@ -62,6 +70,7 @@ export function ParticipationForm({
           : (json.error ?? "Не удалось сохранить анкету."),
       );
       if (res.ok) {
+        if (fullName.success) setName(fullName.data);
         if (typeof json.site === "string") setSite(json.site);
         router.refresh();
       }
@@ -84,6 +93,23 @@ export function ParticipationForm({
             : "Домашний адрес не указывайте."}
       </p>
       <fieldset disabled={locked || busy} className="space-y-4">
+        <div className="space-y-1 text-sm">
+          <Label htmlFor="profile-name">ФИО получателя</Label>
+          <Input
+            id="profile-name"
+            name="name"
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required={consent}
+            maxLength={200}
+            aria-describedby="profile-name-help"
+          />
+          <p id="profile-name-help" className="text-xs text-muted-foreground">
+            Фамилия и имя полностью, отчество — при наличии. Ваш Санта увидит
+            это имя для передачи подарка.
+          </p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1 text-sm">
             <Label htmlFor="profile-city">Город</Label>
@@ -167,7 +193,8 @@ export function ParticipationForm({
           <input
             type="checkbox"
             name="consent"
-            defaultChecked={!!p.consentAt}
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
           />
           Участвую добровольно и согласен(на), что организатор, координатор и
           мой Санта увидят нужные для передачи подарка данные

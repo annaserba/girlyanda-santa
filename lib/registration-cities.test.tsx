@@ -135,12 +135,13 @@ describe("offline Russian city selection at registration", () => {
     "uses the same city selector in the participation form: locked=%s",
     (locked) => {
       const participant = {
+        name: "Иванова Анна",
         city: "Уфа",
         site: "Офис",
         shift: "",
         track: "local",
         wishes: "Книга",
-        consentAt: null,
+        consentAt: new Date(),
         pickupPoint: "",
         reserveVolunteer: false,
       } as Participant;
@@ -156,6 +157,10 @@ describe("offline Russian city selection at registration", () => {
       expect(field).toContain('value="Уфа"');
       expect(field?.includes('disabled=""')).toBe(locked);
       expect(html).toContain('for="profile-city"');
+      expect(html).toContain("ФИО получателя");
+      const nameField = html.match(/<input[^>]*id="profile-name"[^>]*>/)?.[0];
+      expect(nameField).toContain('required=""');
+      expect(nameField).toContain('value="Иванова Анна"');
       const cityPosition = html.indexOf('id="profile-city"');
       const trackPosition = html.indexOf('id="profile-track"');
       const sitePosition = html.indexOf('name="site"');
@@ -174,6 +179,7 @@ describe("offline Russian city selection at registration", () => {
   );
   it("leaves the site optional for the intercity track", () => {
     const participant = {
+      name: "Иванова Анна",
       city: "Уфа",
       site: "",
       shift: "",
