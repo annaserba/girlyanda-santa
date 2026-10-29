@@ -53,6 +53,7 @@ import { profileReady, type EventConfig } from "@/lib/event-config";
 import Link from "next/link";
 import { SiteSettings } from "@/components/site-settings";
 import type { SiteOption } from "@/lib/work-sites";
+import { RegistrationQr } from "@/components/registration-qr";
 
 interface UserOption {
   id: string;
@@ -386,31 +387,8 @@ export function AdminPanel({
             <CardHeader>
               <CardTitle>Ссылка и QR-код регистрации</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="break-all text-sm">
-                {(
-                  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3003"
-                ).replace(/\/$/, "")}
-                /signup
-              </p>
-              <img
-                src="/api/registration-qr"
-                alt="QR-код ссылки на регистрацию"
-                width={180}
-                height={180}
-              />
-              <a
-                href="/api/registration-qr"
-                download="girlyanda-registration.svg"
-                className="text-sm underline"
-              >
-                Скачать QR-код
-              </a>
-              <p className="text-xs text-muted-foreground">
-                Перед публикацией задайте внутренний адрес сайта и пересоберите
-                приложение. localhost доступен только на этом компьютере. QR
-                формируется внутри контура, без внешнего сервиса.
-              </p>
+            <CardContent>
+              <RegistrationQr />
             </CardContent>
           </Card>
           {/* Participants */}

@@ -52,7 +52,7 @@ describe("subtle holiday styling without changing organizer tools", () => {
       "Телефон РФ",
     ])
       expect(html).toContain(label);
-    for (const href of ["/garland", "/coordinator", "/api/registration-qr"])
+    for (const href of ["/garland", "/coordinator", "/signup"])
       expect(html).toContain(href);
     expect(html).toContain("Регистрация списком");
     expect(html).toContain("Исключения");
