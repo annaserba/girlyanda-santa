@@ -23,7 +23,10 @@ export function ParticipationForm({
 }) {
   const router = useRouter();
   const [track, setTrack] = useState(p.track ?? "local");
-  const [name, setName] = useState(p.name);
+  const [name, setName] = useState(() => {
+    const savedName = participantNameSchema.safeParse(p.name);
+    return savedName.success ? savedName.data : "";
+  });
   const [consent, setConsent] = useState(!!p.consentAt);
   const [city, setCity] = useState(p.city);
   const [site, setSite] = useState(p.site);
