@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "coordinator_scope_unique" ON "coordinator_scope" USING btree ("user_id","city","site");
