@@ -21,16 +21,32 @@ const profile = {
   consent: true,
 };
 describe("participation and importing", () => {
-  it.each(["local", "country"] as const)(
-    "accepts a blank site for the %s track",
-    (track) => {
-      const parsed = profileSchema.parse({ ...profile, track, site: "   " });
-      expect(parsed.site).toBe("");
-      expect(profileReady(parsed)).toBe(true);
-      expect(profileReady({ ...parsed, city: "" })).toBe(false);
-      expect(profileReady({ ...parsed, wishes: "" })).toBe(false);
+  it.each(["", "   ", undefined])(
+    "requires a site for a local profile: %s",
+    (site) => {
+      const result = profileSchema.safeParse({
+        ...profile,
+        track: "local",
+        site,
+      });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]).toMatchObject({
+          path: ["site"],
+          message: "Для трека «Рядом» укажите площадку.",
+        });
+      expect(
+        profileReady({ ...profile, track: "local", site: site ?? "" }),
+      ).toBe(false);
     },
   );
+  it("allows an empty site for intercity profiles while retaining other requirements", () => {
+    const parsed = profileSchema.parse({ ...profile, site: "   " });
+    expect(parsed.site).toBe("");
+    expect(profileReady(parsed)).toBe(true);
+    expect(profileReady({ ...parsed, city: "" })).toBe(false);
+    expect(profileReady({ ...parsed, wishes: "" })).toBe(false);
+  });
   it("treats an omitted site as empty without dropping the other requirements", () => {
     const { site: _site, ...withoutSite } = profile;
     expect(profileSchema.parse(withoutSite).site).toBe("");
@@ -38,10 +54,13 @@ describe("participation and importing", () => {
       profileSchema.safeParse({ ...withoutSite, pickupPoint: "" }).success,
     ).toBe(false);
   });
-  it("imports a profile whose optional site column is empty", () => {
-    const [member] = parseMemberList("Анна;;Уфа;;;Рядом;;Люблю чай");
+  it("imports an intercity profile with no site and rejects a local one", () => {
+    const [member] = parseMemberList("Анна;;Уфа;;;Страна;ПВЗ 15;Люблю чай");
     expect(member.site).toBe("");
     expect(profileReady(member)).toBe(true);
+    expect(() => parseMemberList("Анна;;Уфа;;;Рядом;;Люблю чай")).toThrow(
+      "площадку",
+    );
   });
   it("requires a pickup point for intercity but not local", () => {
     expect(

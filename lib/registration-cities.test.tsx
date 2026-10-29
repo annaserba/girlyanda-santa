@@ -163,10 +163,32 @@ describe("offline Russian city selection at registration", () => {
       expect(trackPosition).toBeGreaterThan(cityPosition);
       expect(sitePosition).toBeGreaterThan(trackPosition);
       expect(shiftPosition).toBeGreaterThan(sitePosition);
-      expect(html).toContain("Площадка (необязательно)");
-      expect(html.match(/<input[^>]*name="site"[^>]*>/)?.[0]).not.toContain(
+      expect(html).not.toContain("Площадка (необязательно)");
+      expect(html.match(/<input[^>]*name="site"[^>]*>/)?.[0]).toContain(
         "required",
       );
     },
   );
+  it("leaves the site optional for the intercity track", () => {
+    const participant = {
+      city: "Уфа",
+      site: "",
+      shift: "",
+      track: "country",
+      wishes: "Книга",
+      consentAt: null,
+      pickupPoint: "ПВЗ 15",
+      reserveVolunteer: false,
+    } as Participant;
+    const html = renderToStaticMarkup(
+      <ParticipationForm participant={participant} locked={false} open />,
+    );
+    expect(html).toContain("Площадка (необязательно)");
+    expect(html.match(/<input[^>]*name="site"[^>]*>/)?.[0]).not.toContain(
+      "required",
+    );
+    expect(html.match(/<input[^>]*name="pickupPoint"[^>]*>/)?.[0]).toContain(
+      "required",
+    );
+  });
 });

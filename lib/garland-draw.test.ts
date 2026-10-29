@@ -25,11 +25,11 @@ function check(members: GarlandMember[], pairs: Map<number, number>) {
   }
 }
 describe("garland rings", () => {
-  it("draws city groups without a site while keeping named sites and other cities separate", () => {
+  it("keeps different sites and cities in separate local rings", () => {
     const members = [
-      ...[1, 2, 3].map((id) => member(id, "Уфа", "local", "")),
+      ...[1, 2, 3].map((id) => member(id, "Уфа", "local", "Склад")),
       ...[4, 5, 6].map((id) => member(id, "Уфа", "local", "Офис")),
-      ...[7, 8, 9].map((id) => member(id, "Томск", "local", "")),
+      ...[7, 8, 9].map((id) => member(id, "Томск", "local", "Склад")),
     ];
     const result = runGarlandDraw(members, [], [], "tracks");
     check(members, result.pairs);
@@ -48,15 +48,22 @@ describe("garland rings", () => {
     check(members, result.pairs);
     expect(result.rings).toBe(1);
   });
-  it("still requires at least three participants in a city group without a site", () => {
+  it.each(["single", "tracks"] as const)(
+    "rejects local members without a site under the %s policy",
+    (policy) => {
+      for (const site of ["", "   "]) {
+        const members = [1, 2, 3].map((id) => member(id, "Уфа", "local", site));
+        expect(() => runGarlandDraw(members, [], [], policy)).toThrow(
+          "площадку",
+        );
+        expect(trackAllows(members[0], members[1])).toBe(false);
+      }
+    },
+  );
+  it("still requires at least three participants on a local site", () => {
     expect(() =>
-      runGarlandDraw(
-        [member(1, "Уфа", "local", ""), member(2, "Уфа", "local", "")],
-        [],
-        [],
-        "tracks",
-      ),
-    ).toThrow("без площадки: нужно минимум 3");
+      runGarlandDraw([member(1), member(2)], [], [], "tracks"),
+    ).toThrow("минимум 3");
   });
   it("forms a single cycle without reciprocal pairs", () => {
     const members = Array.from({ length: 30 }, (_, i) => member(i + 1));

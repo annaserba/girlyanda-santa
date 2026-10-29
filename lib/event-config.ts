@@ -56,6 +56,10 @@ export const profileSchema = z
     reserveVolunteer: z.boolean().default(false),
     consent: z.boolean(),
   })
+  .refine((v) => v.track !== "local" || !!v.site, {
+    message: "Для трека «Рядом» укажите площадку.",
+    path: ["site"],
+  })
   .refine((v) => v.track !== "country" || !!v.pickupPoint, {
     message: "Для межгорода укажите пункт выдачи, без домашнего адреса.",
     path: ["pickupPoint"],

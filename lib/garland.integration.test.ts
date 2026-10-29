@@ -454,7 +454,53 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       ).toBe(400);
       expect((await db.select().from(schema.participant)).length).toBe(before);
     });
-    it("saves optional sites and includes those profiles in the draw", async () => {
+    it("rejects local profiles without a site without overwriting saved data", async () => {
+      await config(true);
+      state.actor = { id: "u1", role: "user" };
+      const [before] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      state.participant = before;
+      for (const site of [undefined, "", "   "]) {
+        const response = await updateProfile(
+          jsonRequest({
+            city: "Уфа",
+            site,
+            shift: "",
+            track: "local",
+            wishes: "Книги",
+            pickupPoint: "",
+            consent: true,
+            reserveVolunteer: false,
+          }),
+        );
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({
+          error: "Для трека «Рядом» укажите площадку.",
+        });
+      }
+      const [after] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      expect(after).toEqual(before);
+    });
+    it("rejects an entire import if a local participant has no site", async () => {
+      await config(true);
+      state.actor = { id: "admin", role: "admin" };
+      const before = await db.select().from(schema.participant);
+      const response = await importMembers(
+        jsonRequest({
+          text: "Олег;;Уфа;Склад;;Рядом;;Книга\nАнна;;Уфа;;;Рядом;;Чай",
+          consentConfirmed: true,
+        }),
+      );
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toContain("Строка 2");
+      expect(await db.select().from(schema.participant)).toEqual(before);
+    });
+    it("saves intercity profiles without sites and includes them in the draw", async () => {
       await config(true);
       for (const id of [1, 2, 3]) {
         state.actor = { id: `u${id}`, role: "user" };
@@ -466,12 +512,12 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         )[0];
         const response = await updateProfile(
           jsonRequest({
-            city: "Уфа",
+            city: ["Уфа", "Томск", "Москва"][id - 1],
             ...(id === 1 ? {} : { site: "" }),
             shift: "",
-            track: "local",
+            track: "country",
             wishes: "Книги",
-            pickupPoint: "",
+            pickupPoint: "ПВЗ 15",
             consent: true,
             reserveVolunteer: false,
           }),

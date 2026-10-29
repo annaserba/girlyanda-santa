@@ -41,7 +41,7 @@ export function parseMemberList(text: string) {
       });
       if (!parsed.success)
         throw new Error(
-          `Строка ${index + 1}: проверьте имя, почту, трек, ПВЗ и пожелания.`,
+          `Строка ${index + 1}: проверьте имя, почту, город, площадку (обязательна для «Рядом»), трек, ПВЗ и пожелания.`,
         );
       return parsed.data;
     });

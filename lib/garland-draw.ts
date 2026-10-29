@@ -24,6 +24,7 @@ export function trackAllows(g: GarlandMember, r: GarlandMember) {
   if (g.track === "country") return canonical(g.city) !== canonical(r.city);
   return (
     g.track === "local" &&
+    !!canonical(g.site) &&
     sameSite(g, r) &&
     (!g.shift || canonical(g.shift) === canonical(r.shift))
   );
@@ -152,6 +153,10 @@ export function runGarlandDraw(
     throw new DrawError("В списке есть повторяющиеся участники.");
   if (members.some((m) => !m.track || !m.city.trim()))
     throw new DrawError("Участники должны заполнить город и трек.");
+  if (members.some((m) => m.track === "local" && !m.site.trim()))
+    throw new DrawError(
+      "Для трека «Рядом» каждый участник должен указать площадку.",
+    );
   const groups = new Map<string, GarlandMember[]>();
   for (const m of members) {
     const key =
@@ -173,7 +178,7 @@ export function runGarlandDraw(
   for (const [name, group] of groups) {
     const label =
       policy === "tracks" && group[0].track === "local"
-        ? `Рядом: ${group[0].city.trim()} / ${group[0].site.trim() || "без площадки"}${group[0].shift.trim() ? ` / ${group[0].shift.trim()}` : ""}`
+        ? `Рядом: ${group[0].city.trim()} / ${group[0].site.trim()}${group[0].shift.trim() ? ` / ${group[0].shift.trim()}` : ""}`
         : name;
     if (group.length < 3)
       throw new DrawError(

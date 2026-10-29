@@ -94,8 +94,13 @@ export function ParticipationForm({
             </select>
           </label>
           <label className="space-y-1 text-sm">
-            Площадка (необязательно)
-            <Input name="site" maxLength={120} defaultValue={p.site} />
+            {track === "local" ? "Площадка" : "Площадка (необязательно)"}
+            <Input
+              name="site"
+              required={track === "local"}
+              maxLength={120}
+              defaultValue={p.site}
+            />
           </label>
           <label className="space-y-1 text-sm">
             Смена (необязательно)
@@ -104,7 +109,7 @@ export function ParticipationForm({
         </div>
         <p className="text-sm text-muted-foreground">
           {track === "local"
-            ? "Без площадки — обмен с участниками своего города, которые тоже её не указали. Указанные площадка и смена разделяют группы."
+            ? "Укажите площадку для обмена с коллегами. Указанная смена выделяет отдельную группу."
             : "Коллега из другого города. Подготовьте подарок из своего региона и открытку «откуда это»."}
         </p>
         {track === "country" && (
