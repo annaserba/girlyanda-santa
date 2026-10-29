@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   pairings: vi.fn(),
   config: vi.fn(),
   panel: vi.fn(),
+  sites: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -28,6 +29,7 @@ vi.mock("@/lib/db", async () => ({
 vi.mock("@/lib/settings", () => ({ getOgSettings: mocks.settings }));
 vi.mock("@/lib/pairings", () => ({ getAllPairings: mocks.pairings }));
 vi.mock("@/lib/event-settings", () => ({ getEventConfig: mocks.config }));
+vi.mock("@/lib/sites", () => ({ getSiteOptions: mocks.sites }));
 vi.mock("@/components/admin-panel", () => ({ AdminPanel: mocks.panel }));
 import AdminPage from "./page";
 
@@ -44,6 +46,7 @@ beforeEach(() => {
   });
   mocks.pairings.mockResolvedValue([]);
   mocks.config.mockResolvedValue(EVENT_DEFAULTS);
+  mocks.sites.mockResolvedValue([]);
   mocks.panel.mockReturnValue(<div data-testid="existing-admin-panel" />);
 });
 
@@ -69,6 +72,7 @@ describe("light festive organizer page", () => {
       exclusions: [],
       pairings: [],
       scopes: [],
+      sites: [],
       eventConfig: EVENT_DEFAULTS,
     });
   });

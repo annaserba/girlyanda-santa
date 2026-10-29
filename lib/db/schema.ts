@@ -248,6 +248,22 @@ export const giftAudit = pgTable("gift_audit", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+/** City-scoped site identities; historical names continue to resolve after edits. */
+export const workSite = pgTable("work_site", {
+  id: serial("id").primaryKey(),
+  city: text("city").notNull(),
+  cityKey: text("city_key").notNull(),
+  name: text("name").notNull(),
+  nameKey: text("name_key").notNull(),
+}, (table) => [uniqueIndex("work_site_identity_unique").on(table.cityKey, table.nameKey)]);
+
+export const workSiteAlias = pgTable("work_site_alias", {
+  id: serial("id").primaryKey(),
+  cityKey: text("city_key").notNull(),
+  nameKey: text("name_key").notNull(),
+  siteId: integer("site_id").notNull().references(() => workSite.id, { onDelete: "cascade" }),
+}, (table) => [uniqueIndex("work_site_alias_identity_unique").on(table.cityKey, table.nameKey)]);
+
 export type User = typeof user.$inferSelect;
 export type Participant = typeof participant.$inferSelect;
 export type Draw = typeof draw.$inferSelect;

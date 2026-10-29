@@ -5,6 +5,7 @@ import { badRequest } from "@/lib/api";
 import { getOrCreateParticipant } from "@/lib/session";
 import { profileSchema } from "@/lib/event-config";
 import { getEventConfig } from "@/lib/event-settings";
+import { resolveSiteName } from "@/lib/sites";
 
 export async function PUT(req: NextRequest) {
   const participant = await getOrCreateParticipant();
@@ -17,6 +18,7 @@ export async function PUT(req: NextRequest) {
   if (!parsed.success)
     return badRequest(parsed.error.issues[0]?.message ?? "Проверьте анкету.");
   const { consent, ...profile } = parsed.data;
+  let savedSite = profile.site;
   const error = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(2026, 1)`);
     const assigned = await first(
@@ -65,11 +67,18 @@ export async function PUT(req: NextRequest) {
           return "Эта почта уже есть в подтверждённой анкете. Попросите организатора привязать к ней ваш аккаунт, чтобы не участвовать дважды.";
       }
     }
+    savedSite = await resolveSiteName(tx, profile.city, profile.site);
     await tx
       .update(schema.participant)
-      .set({ ...profile, consentAt: consent ? new Date() : null })
+      .set({
+        ...profile,
+        site: savedSite,
+        consentAt: consent ? new Date() : null,
+      })
       .where(eq(schema.participant.id, participant.id));
     return null;
   });
-  return error ? badRequest(error) : NextResponse.json({ ok: true });
+  return error
+    ? badRequest(error)
+    : NextResponse.json({ ok: true, site: savedSite });
 }

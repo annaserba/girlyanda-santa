@@ -6,25 +6,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CitySelect } from "@/components/city-select";
+import { SiteSelect } from "@/components/site-select";
+import { canonical } from "@/lib/event-config";
+import type { SiteOption } from "@/lib/work-sites";
 
 export function ParticipationForm({
   participant: p,
   locked,
   open,
+  sites = [],
 }: {
   participant: Participant;
   locked: boolean;
   open: boolean;
+  sites?: SiteOption[];
 }) {
   const router = useRouter();
   const [track, setTrack] = useState(p.track ?? "local");
   const [city, setCity] = useState(p.city);
+  const [site, setSite] = useState(p.site);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!city) {
       setMessage("Выберите город РФ из списка.");
+      return;
+    }
+    if (track === "local" && !site.trim()) {
+      setMessage("Для трека «Рядом» укажите площадку.");
       return;
     }
     const data = new FormData(event.currentTarget);
@@ -36,7 +46,7 @@ export function ParticipationForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           city: data.get("city"),
-          site: data.get("site"),
+          site,
           shift: data.get("shift"),
           track,
           pickupPoint: data.get("pickupPoint") ?? "",
@@ -51,7 +61,10 @@ export function ParticipationForm({
           ? "Анкета сохранена."
           : (json.error ?? "Не удалось сохранить анкету."),
       );
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        if (typeof json.site === "string") setSite(json.site);
+        router.refresh();
+      }
     } catch {
       setMessage("Нет связи с сервером. Попробуйте ещё раз.");
     } finally {
@@ -77,7 +90,10 @@ export function ParticipationForm({
             <CitySelect
               id="profile-city"
               value={city}
-              onChange={setCity}
+              onChange={(next) => {
+                if (canonical(next) !== canonical(city)) setSite("");
+                setCity(next);
+              }}
               disabled={locked || busy}
             />
           </div>
@@ -93,15 +109,20 @@ export function ParticipationForm({
               <option value="country">Через всю страну</option>
             </select>
           </label>
-          <label className="space-y-1 text-sm">
-            {track === "local" ? "Площадка" : "Площадка (необязательно)"}
-            <Input
-              name="site"
+          <div className="space-y-1 text-sm">
+            <Label htmlFor="profile-site">
+              {track === "local" ? "Площадка" : "Площадка (необязательно)"}
+            </Label>
+            <SiteSelect
+              id="profile-site"
+              city={city}
+              options={sites}
+              value={site}
+              onChange={setSite}
+              disabled={locked || busy}
               required={track === "local"}
-              maxLength={120}
-              defaultValue={p.site}
             />
-          </label>
+          </div>
           <label className="space-y-1 text-sm">
             Смена (необязательно)
             <Input name="shift" maxLength={120} defaultValue={p.shift} />
@@ -155,7 +176,7 @@ export function ParticipationForm({
           Чтобы отказаться до жеребьёвки, снимите согласие и сохраните анкету.
           После жеребьёвки обратитесь к организатору.
         </p>
-        <Button disabled={busy || !city}>
+        <Button disabled={busy || !city || (track === "local" && !site.trim())}>
           {busy ? "Сохраняем…" : "Сохранить анкету"}
         </Button>
       </fieldset>

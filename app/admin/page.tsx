@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AdminPanel } from "@/components/admin-panel";
 import { getEventConfig } from "@/lib/event-settings";
 import { HolidayPageHeader, HolidayShell } from "@/components/holiday-shell";
+import { getSiteOptions } from "@/lib/sites";
 
 export default async function AdminPage() {
   const user = await getCurrentUser();
@@ -28,6 +29,7 @@ export default async function AdminPage() {
   const pairings = await getAllPairings();
   const eventConfig = await getEventConfig();
   const scopes = await db.select().from(schema.coordinatorScope);
+  const sites = await getSiteOptions();
 
   return (
     <HolidayShell contentId="admin-content" skipLabel="К управлению событием">
@@ -55,6 +57,7 @@ export default async function AdminPage() {
           og={og}
           eventConfig={eventConfig}
           scopes={scopes}
+          sites={sites}
         />
       </main>
     </HolidayShell>

@@ -23,6 +23,7 @@ import { RecipientDetails } from "@/lib/gift-display";
 import { getEventConfig } from "@/lib/event-settings";
 import { staffAccess } from "@/lib/staff";
 import { HolidayPageHeader, HolidayShell } from "@/components/holiday-shell";
+import { getSiteOptions } from "@/lib/sites";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
   const admin = await isAdmin();
   const config = await getEventConfig();
   const staff = await staffAccess();
+  const sites = await getSiteOptions();
   const currentDraws = db
     .select({ id: schema.draw.id })
     .from(schema.draw)
@@ -151,6 +153,7 @@ export default async function DashboardPage() {
                 participant={participant}
                 locked={!!latest || !!incoming}
                 open={config.registrationOpen}
+                sites={sites}
               />
             )}
           </CardContent>

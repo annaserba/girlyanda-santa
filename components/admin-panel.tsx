@@ -51,6 +51,8 @@ import { CoordinatorSettings } from "@/components/coordinator-settings";
 import { MemberImport } from "@/components/member-import";
 import { profileReady, type EventConfig } from "@/lib/event-config";
 import Link from "next/link";
+import { SiteSettings } from "@/components/site-settings";
+import type { SiteOption } from "@/lib/work-sites";
 
 interface UserOption {
   id: string;
@@ -66,6 +68,7 @@ interface Props {
   og: OgSettings;
   eventConfig: EventConfig;
   scopes: { id: number; userId: string; city: string; site: string }[];
+  sites?: SiteOption[];
 }
 
 type DrawResponse = {
@@ -86,6 +89,7 @@ export function AdminPanel({
   og,
   eventConfig,
   scopes,
+  sites = [],
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<"santa" | "draw" | "mail" | "technical">(
@@ -348,9 +352,14 @@ export function AdminPanel({
       {tab === "technical" && (
         <div className="space-y-6">
           <EventSettings initial={eventConfig} />
+          <SiteSettings sites={sites} />
           <Card>
             <CardContent className="pt-6">
-              <CoordinatorSettings users={users} scopes={scopes} />
+              <CoordinatorSettings
+                users={users}
+                scopes={scopes}
+                sites={sites}
+              />
             </CardContent>
           </Card>
           <OgSettingsForm initial={og} />

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   config: vi.fn(),
   history: vi.fn(),
   pairings: vi.fn(),
+  sites: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -30,6 +31,7 @@ vi.mock("@/lib/db", async () => ({
 }));
 vi.mock("@/lib/staff", () => ({ staffAccess: mocks.staff }));
 vi.mock("@/lib/event-settings", () => ({ getEventConfig: mocks.config }));
+vi.mock("@/lib/sites", () => ({ getSiteOptions: mocks.sites }));
 vi.mock("@/lib/pairings", () => ({
   getMyMatchHistory: mocks.history,
   getVisiblePairings: mocks.pairings,
@@ -56,6 +58,7 @@ beforeEach(() => {
   mocks.admin.mockResolvedValue(false);
   mocks.staff.mockResolvedValue({ admin: false, scopes: [] });
   mocks.config.mockResolvedValue(EVENT_DEFAULTS);
+  mocks.sites.mockResolvedValue([]);
   mocks.history.mockResolvedValue([]);
   mocks.pairings.mockResolvedValue([]);
   const query = {

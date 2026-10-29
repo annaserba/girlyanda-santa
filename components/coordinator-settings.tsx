@@ -2,18 +2,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CitySelect } from "@/components/city-select";
+import { SiteSelect } from "@/components/site-select";
+import { canonical } from "@/lib/event-config";
+import type { SiteOption } from "@/lib/work-sites";
 
 export function CoordinatorSettings({
   users,
   scopes,
+  sites = [],
 }: {
   users: { id: string; name: string; email: string }[];
   scopes: { id: number; userId: string; city: string; site: string }[];
+  sites?: SiteOption[];
 }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [city, setCity] = useState("");
+  const [site, setSite] = useState("");
   async function request(method: string, data: object) {
     setBusy(true);
     try {
@@ -75,21 +83,29 @@ export function CoordinatorSettings({
             </option>
           ))}
         </select>
-        <Input
-          name="city"
-          aria-label="Город координатора"
-          placeholder="Город"
-          required
-          maxLength={120}
+        <Label htmlFor="coordinator-city">Город координатора</Label>
+        <CitySelect
+          id="coordinator-city"
+          value={city}
+          onChange={(next) => {
+            if (canonical(next) !== canonical(city)) setSite("");
+            setCity(next);
+          }}
+          disabled={busy}
         />
-        <Input
-          name="site"
-          aria-label="Площадка координатора"
-          placeholder="Площадка"
+        <Label htmlFor="coordinator-site">Площадка координатора</Label>
+        <SiteSelect
+          id="coordinator-site"
+          city={city}
+          options={sites}
+          value={site}
+          onChange={setSite}
           required
-          maxLength={120}
+          disabled={busy}
         />
-        <Button disabled={busy}>Назначить координатора</Button>
+        <Button disabled={busy || !city || !site.trim()}>
+          Назначить координатора
+        </Button>
       </form>
       {message && (
         <p role="status" className="text-sm">

@@ -8,6 +8,7 @@ import {
   vi,
 } from "vitest";
 import { NextRequest } from "next/server";
+import { readFileSync } from "node:fs";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
@@ -30,6 +31,19 @@ import { POST as importMembers } from "@/app/api/participants/import/route";
 import { PUT as updateProfile } from "@/app/api/profile/route";
 import { POST as startDraw, DELETE as cancelDraw } from "@/app/api/draw/route";
 import { PUT as updateEvent } from "@/app/api/event/route";
+import { GET as listSites, PATCH as editSites } from "@/app/api/sites/route";
+import { POST as assignCoordinator } from "@/app/api/coordinators/route";
+import { getSiteOptions, resolveSiteName } from "./sites";
+
+async function ensureSite(city: string, name: string) {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(2026, 1)`);
+    await resolveSiteName(tx, city, name);
+  });
+  return (await getSiteOptions()).find(
+    (s) => s.city === city && s.name === name,
+  )!;
+}
 
 function jsonRequest(body: object) {
   return new NextRequest("http://test.internal/api", {
@@ -76,7 +90,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
     });
     beforeEach(async () => {
       await db.execute(
-        sql`TRUNCATE gift_audit, assignment, coordinator_scope, participant, draw, "user", app_setting RESTART IDENTITY CASCADE`,
+        sql`TRUNCATE work_site_alias, work_site, gift_audit, assignment, coordinator_scope, participant, draw, "user", app_setting RESTART IDENTITY CASCADE`,
       );
       await db.insert(schema.user).values(
         ["u1", "u2", "u3", "admin", "stranger", "coord"].map((id) => ({
@@ -101,11 +115,330 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         })),
       );
       await config(false);
+      await ensureSite("Уфа", "Склад");
       state.actor = { id: "admin", role: "admin" };
       state.participant = null;
     });
     afterAll(async () => {
       await db.$client.end();
+    });
+
+    it("backfills legacy case variants from profiles and coordinator scopes into one identity", async () => {
+      await db.delete(schema.workSiteAlias);
+      await db.delete(schema.workSite);
+      await db
+        .update(schema.participant)
+        .set({ site: "Офис Север" })
+        .where(eq(schema.participant.id, 1));
+      await db
+        .update(schema.participant)
+        .set({ site: "ОФИС  СЕВЁР" })
+        .where(eq(schema.participant.id, 2));
+      await db
+        .insert(schema.coordinatorScope)
+        .values({ userId: "coord", city: " УФА ", site: "офис север" });
+      const statements = readFileSync("drizzle/0010_work_sites.sql", "utf8")
+        .split("--> statement-breakpoint")
+        .slice(-2);
+      for (const statement of statements) await db.execute(sql.raw(statement));
+      const options = await getSiteOptions();
+      expect(options).toHaveLength(2);
+      expect(options.filter((s) => s.name === "Офис Север")).toHaveLength(1);
+      expect(await db.select().from(schema.workSiteAlias)).toHaveLength(2);
+    });
+    it("serializes simultaneous additions and deduplicates case variants", async () => {
+      await Promise.all(
+        ["Офис Север", "офис  СЕВЁР"].map((name) =>
+          db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(2026, 1)`);
+            return resolveSiteName(tx, "Уфа", name);
+          }),
+        ),
+      );
+      expect(
+        (await getSiteOptions()).filter((s) => s.name !== "Склад"),
+      ).toHaveLength(1);
+    });
+    it("reuses a catalog entry when a profile submits a different case", async () => {
+      await config(true);
+      await ensureSite("Уфа", "Офис Север");
+      state.actor = { id: "u1", role: "user" };
+      state.participant = (
+        await db
+          .select()
+          .from(schema.participant)
+          .where(eq(schema.participant.id, 1))
+      )[0];
+      const response = await updateProfile(
+        jsonRequest({
+          city: "Уфа",
+          site: "офис  СЕВЁР",
+          track: "local",
+          wishes: "Книга",
+          consent: true,
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect((await response.json()).site).toBe("Офис Север");
+      expect(
+        (
+          await db
+            .select()
+            .from(schema.participant)
+            .where(eq(schema.participant.id, 1))
+        )[0].site,
+      ).toBe("Офис Север");
+      expect(await getSiteOptions()).toHaveLength(2);
+    });
+    it("renames profiles and permissions after a draw while preserving all assignments", async () => {
+      const source = (await getSiteOptions())[0];
+      await db
+        .insert(schema.coordinatorScope)
+        .values({ userId: "coord", city: "уфа", site: "склад" });
+      await executeDraw(await draft());
+      const before = await db
+        .select()
+        .from(schema.assignment)
+        .orderBy(schema.assignment.id);
+      const response = await editSites(
+        jsonRequest({
+          action: "rename",
+          sourceId: source.id,
+          name: "Логистический центр",
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect(
+        (await db.select().from(schema.participant)).every(
+          (p) => p.site === "Логистический центр",
+        ),
+      ).toBe(true);
+      expect((await db.select().from(schema.coordinatorScope))[0].site).toBe(
+        "логистический центр",
+      );
+      expect(
+        await db.select().from(schema.assignment).orderBy(schema.assignment.id),
+      ).toEqual(before);
+    });
+    it("rejects conflicting renames and cross-city merges without changing profiles", async () => {
+      const source = (await getSiteOptions())[0];
+      const target = await ensureSite("Уфа", "Офис");
+      const otherCity = await ensureSite("Томск", "Офис");
+      const before = await db.select().from(schema.participant);
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "rename",
+              sourceId: source.id,
+              name: "ОФИС",
+            }),
+          )
+        ).status,
+      ).toBe(409);
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "merge",
+              sourceId: source.id,
+              targetId: otherCity.id,
+            }),
+          )
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "merge",
+              sourceId: target.id,
+              targetId: target.id,
+            }),
+          )
+        ).status,
+      ).toBe(400);
+      expect(await db.select().from(schema.participant)).toEqual(before);
+      expect(await getSiteOptions()).toHaveLength(3);
+    });
+    it("merges identities, retains coordinator permissions and leaves gift pairs unchanged", async () => {
+      const source = (await getSiteOptions())[0];
+      const target = await ensureSite("Уфа", "Офис");
+      await db
+        .insert(schema.participant)
+        .values(
+          [4, 5, 6].map((n) => ({
+            name: `Человек ${n}`,
+            city: "Уфа",
+            site: "Офис",
+            track: "local" as const,
+            wishes: "Чай",
+            consentAt: new Date(),
+          })),
+        );
+      await db.insert(schema.coordinatorScope).values([
+        { userId: "coord", city: "уфа", site: "склад" },
+        { userId: "coord", city: "уфа", site: "офис" },
+        { userId: "u3", city: "уфа", site: "склад" },
+        { userId: "stranger", city: "томск", site: "склад" },
+      ]);
+      await executeDraw(await draft());
+      const before = await db
+        .select()
+        .from(schema.assignment)
+        .orderBy(schema.assignment.id);
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "merge",
+              sourceId: source.id,
+              targetId: target.id,
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      expect(await getSiteOptions()).toEqual([target]);
+      expect(
+        (await db.select().from(schema.participant)).every(
+          (p) => p.site === "Офис",
+        ),
+      ).toBe(true);
+      const scopes = await db.select().from(schema.coordinatorScope);
+      expect(scopes).toHaveLength(3);
+      expect(
+        scopes.filter((s) => s.userId === "coord" && s.site === "офис"),
+      ).toHaveLength(1);
+      expect(scopes.find((s) => s.userId === "stranger")?.site).toBe("склад");
+      expect(
+        await db.select().from(schema.assignment).orderBy(schema.assignment.id),
+      ).toEqual(before);
+    });
+    it("resolves old forms and coordinator imports after both rename and merge", async () => {
+      await config(true);
+      const source = (await getSiteOptions())[0];
+      const target = await ensureSite("Уфа", "Офис");
+      await db
+        .insert(schema.coordinatorScope)
+        .values({ userId: "coord", city: "уфа", site: "склад" });
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "rename",
+              sourceId: source.id,
+              name: "Терминал",
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "merge",
+              sourceId: source.id,
+              targetId: target.id,
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      state.actor = { id: "u1", role: "user" };
+      state.participant = (
+        await db
+          .select()
+          .from(schema.participant)
+          .where(eq(schema.participant.id, 1))
+      )[0];
+      const response = await updateProfile(
+        jsonRequest({
+          city: "Уфа",
+          site: "СКЛАД",
+          track: "local",
+          wishes: "Чай",
+          consent: true,
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect((await response.json()).site).toBe("Офис");
+      state.actor = { id: "coord", role: "user" };
+      const imported = await importMembers(
+        jsonRequest({
+          text: "Анна;;Уфа;ТЕРМИНАЛ;;Рядом;;Книга",
+          consentConfirmed: true,
+        }),
+      );
+      expect(imported.status).toBe(200);
+      expect(
+        (await db.select().from(schema.participant)).every(
+          (p) => p.site === "Офис",
+        ),
+      ).toBe(true);
+      expect(await getSiteOptions()).toEqual([target]);
+    });
+    it("restricts catalog access and editing and does not create sites for rejected imports", async () => {
+      const source = (await getSiteOptions())[0];
+      state.actor = null;
+      expect((await listSites()).status).toBe(401);
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "rename",
+              sourceId: source.id,
+              name: "Чужое",
+            }),
+          )
+        ).status,
+      ).toBe(403);
+      state.actor = { id: "coord", role: "user" };
+      expect(
+        (
+          await editSites(
+            jsonRequest({
+              action: "rename",
+              sourceId: source.id,
+              name: "Чужое",
+            }),
+          )
+        ).status,
+      ).toBe(403);
+      const visible = await listSites();
+      expect(visible.status).toBe(200);
+      expect(Object.keys((await visible.json()).sites[0]).sort()).toEqual([
+        "city",
+        "id",
+        "name",
+      ]);
+      await db
+        .insert(schema.coordinatorScope)
+        .values({ userId: "coord", city: "уфа", site: "склад" });
+      await config(true);
+      const imported = await importMembers(
+        jsonRequest({
+          text: "Анна;;Уфа;Другая площадка;;Рядом;;Книга",
+          consentConfirmed: true,
+        }),
+      );
+      expect(imported.status).toBe(403);
+      expect(await getSiteOptions()).toEqual([source]);
+    });
+    it("resolves an old name when assigning a coordinator after a rename", async () => {
+      const source = (await getSiteOptions())[0];
+      await editSites(
+        jsonRequest({
+          action: "rename",
+          sourceId: source.id,
+          name: "Терминал",
+        }),
+      );
+      const response = await assignCoordinator(
+        jsonRequest({ userId: "coord", city: "Уфа", site: "СКЛАД" }),
+      );
+      expect(response.status).toBe(200);
+      expect(
+        (await db.select().from(schema.coordinatorScope))[0],
+      ).toMatchObject({ city: "уфа", site: "терминал" });
     });
 
     it("updates registration aggregates without drawing and excludes unconfirmed accounts", async () => {

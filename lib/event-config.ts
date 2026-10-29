@@ -48,7 +48,11 @@ export const EVENT_DEFAULTS: EventConfig = {
 export const profileSchema = z
   .object({
     city: z.string().trim().min(1, "Укажите город.").max(120),
-    site: z.string().trim().max(120).default(""),
+    site: z
+      .string()
+      .transform((name) => name.normalize("NFKC").trim().replace(/\s+/g, " "))
+      .pipe(z.string().max(120))
+      .default(""),
     shift: z.string().trim().max(120).default(""),
     track: z.enum(["local", "country"]),
     pickupPoint: z.string().trim().max(500).default(""),

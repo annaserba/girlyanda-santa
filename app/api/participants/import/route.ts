@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { badRequest } from "@/lib/api";
 import { staffAccess, managesSite } from "@/lib/staff";
 import { getEventConfig } from "@/lib/event-settings";
 import { parseMemberList, memberIdentity } from "@/lib/import-members";
+import { resolveSiteName } from "@/lib/sites";
+import { canonical } from "@/lib/event-config";
 
 export async function POST(req: NextRequest) {
   const access = await staffAccess();
@@ -32,15 +34,33 @@ export async function POST(req: NextRequest) {
   }
   if (!entries.length || entries.length > 1500)
     return badRequest("За один раз можно добавить от 1 до 1500 анкет.");
-  if (entries.some((p) => !managesSite(access, p)))
-    return NextResponse.json(
-      { error: "В списке есть чужая площадка. Импорт отменён полностью." },
-      { status: 403 },
-    );
   const result = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(2026, 1)`);
     if (!(await getEventConfig(tx)).registrationOpen)
       return "Приём анкет закрыт.";
+    // Refresh scope inside the same lock as rename/merge and resolve old names
+    // before checking access. Do not create catalog rows for rejected imports.
+    const currentAccess = access.admin
+      ? access
+      : {
+          ...access,
+          scopes: await tx
+            .select()
+            .from(schema.coordinatorScope)
+            .where(eq(schema.coordinatorScope.userId, access.user.id)),
+        };
+    const aliases = await tx.select().from(schema.workSiteAlias);
+    const sites = await tx.select().from(schema.workSite);
+    const resolvedEntries = entries.map((p) => {
+      const alias = aliases.find(
+        (a) =>
+          a.cityKey === canonical(p.city) && a.nameKey === canonical(p.site),
+      );
+      const site = alias ? sites.find((s) => s.id === alias.siteId) : undefined;
+      return site ? { ...p, site: site.name } : p;
+    });
+    if (resolvedEntries.some((p) => !managesSite(currentAccess, p)))
+      return "В списке есть чужая площадка. Импорт отменён полностью.";
     const existing = await tx.select().from(schema.participant);
     const identities = new Set(existing.map(memberIdentity));
     const emails = new Set(
@@ -50,26 +70,30 @@ export async function POST(req: NextRequest) {
       .select({ email: schema.user.email })
       .from(schema.user);
     accounts.forEach((a) => emails.add(a.email.toLowerCase()));
-    for (let i = 0; i < entries.length; i++) {
-      const p = entries[i];
+    for (let i = 0; i < resolvedEntries.length; i++) {
+      const p = resolvedEntries[i];
       const key = memberIdentity(p);
       if (identities.has(key) || (p.email && emails.has(p.email)))
         return `Строка ${i + 1}: участник или почта уже есть. Весь импорт отменён, существующие анкеты не изменены.`;
       identities.add(key);
       if (p.email) emails.add(p.email);
     }
-    await tx
-      .insert(schema.participant)
-      .values(
-        entries.map(({ consent: _consent, ...p }) => ({
-          ...p,
-          email: p.email || null,
-          consentAt: new Date(),
-        })),
-      );
+    const records = [];
+    for (const { consent: _consent, ...p } of resolvedEntries) {
+      const site = await resolveSiteName(tx, p.city, p.site);
+      records.push({
+        ...p,
+        site,
+        email: p.email || null,
+        consentAt: new Date(),
+      });
+    }
+    await tx.insert(schema.participant).values(records);
     return null;
   });
   return result
-    ? badRequest(result)
+    ? result === "В списке есть чужая площадка. Импорт отменён полностью."
+      ? NextResponse.json({ error: result }, { status: 403 })
+      : badRequest(result)
     : NextResponse.json({ ok: true, count: entries.length });
 }
