@@ -415,6 +415,86 @@
 .festive-map-intro {
   padding-block: 44px 32px;
 }
+.garland-admin-note {
+  color: #b8c6e4;
+}
+.garland-admin-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.garland-admin-controls label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.garland-admin-controls input,
+.garland-admin-controls select,
+.garland-admin-pagination button {
+  min-height: 44px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #52617c;
+  border-radius: 10px;
+  color: #fff3d6;
+  background: #15213a;
+}
+.garland-admin-controls input::placeholder {
+  color: #b8c6e4;
+}
+.garland-admin-controls :focus-visible,
+.garland-admin-pagination button:focus-visible {
+  outline: 2px solid #ffc857;
+  outline-offset: 3px;
+}
+.garland-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.garland-admin-card {
+  border: 1px solid #364868;
+  border-radius: 14px;
+  background: #15213a;
+  padding: 20px;
+  overflow-wrap: anywhere;
+}
+.garland-admin-pairs > div {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+}
+.garland-admin-pairs dt {
+  color: #b8c6e4;
+}
+.garland-admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.garland-admin-pagination button {
+  width: auto;
+  cursor: pointer;
+}
+.garland-admin-pagination button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.garland-admin-city-link:hover .garland-city-marker,
+.garland-admin-city-link:focus-visible .garland-city-marker {
+  stroke: #fff3d6;
+  stroke-width: 3px;
+}
+#garland-participants {
+  scroll-margin-top: 24px;
+}
+@media (max-width: 700px) {
+  .garland-admin-controls,
+  .garland-admin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .festive-map-intro h1 {
   font-size: clamp(30px, 4vw, 48px);
   font-weight: 700;

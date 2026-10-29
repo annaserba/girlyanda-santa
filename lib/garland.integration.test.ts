@@ -36,6 +36,7 @@ import { POST as assignCoordinator } from "@/app/api/coordinators/route";
 import { getSiteOptions, resolveSiteName } from "./sites";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RecipientDetails } from "./gift-display";
+import { getAdminGarlandSnapshot } from "./admin-garland-snapshot";
 
 async function ensureSite(city: string, name: string) {
   await db.transaction(async (tx) => {
@@ -126,6 +127,84 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
     });
     afterAll(async () => {
       await db.$client.end();
+    });
+
+    it("denies personal map data to guests, members and coordinators", async () => {
+      for (const actor of [
+        null,
+        { id: "u1", role: "user" },
+        { id: "coord", role: "user" },
+      ]) {
+        state.actor = actor;
+        await expect(getAdminGarlandSnapshot(EVENT_DEFAULTS)).rejects.toThrow(
+          "только организатору",
+        );
+      }
+    });
+    it("shows names only for opted-in map participants and excludes contact and reveal data", async () => {
+      await db
+        .insert(schema.participant)
+        .values({
+          name: "Не подтвердил участие",
+          city: "Москва",
+          site: "Офис",
+        });
+      const privateSnapshot = await getAdminGarlandSnapshot(EVENT_DEFAULTS);
+      expect(privateSnapshot.phase).toBe("registration");
+      expect(privateSnapshot.people).toHaveLength(3);
+      expect(privateSnapshot.people.map((p) => p.name)).toContain(
+        "Тестовый Участник-1",
+      );
+      expect(privateSnapshot.people.map((p) => p.name)).not.toContain(
+        "Не подтвердил участие",
+      );
+      expect(JSON.stringify(privateSnapshot)).not.toMatch(
+        /email|phone|pickupPoint|revealToken|@corp\.test/,
+      );
+      const publicSnapshot = await getGarlandSnapshot(EVENT_DEFAULTS);
+      expect(JSON.stringify(publicSnapshot)).not.toContain(
+        "Тестовый Участник-1",
+      );
+    });
+    it("reads actual gift pairs and states without changing assignments or including late accounts", async () => {
+      await executeDraw(await draft());
+      const [gift] = await db
+        .select()
+        .from(schema.assignment)
+        .orderBy(schema.assignment.id);
+      await db
+        .update(schema.assignment)
+        .set({ sentAt: new Date(), receivedAt: new Date() })
+        .where(eq(schema.assignment.id, gift.id));
+      const before = await db
+        .select()
+        .from(schema.assignment)
+        .orderBy(schema.assignment.id);
+      await db
+        .insert(schema.participant)
+        .values({
+          name: "Поздний Участник",
+          city: "Москва",
+          site: "Офис",
+          track: "local",
+          wishes: "Книга",
+          consentAt: new Date(),
+        });
+      const snapshot = await getAdminGarlandSnapshot(EVENT_DEFAULTS);
+      expect(snapshot.phase).toBe("gifts");
+      expect(snapshot.people).toHaveLength(3);
+      expect(snapshot.gifts).toHaveLength(3);
+      expect(
+        snapshot.gifts.find((g) => g.giverId === gift.giverId),
+      ).toMatchObject({
+        receiverId: gift.receiverId,
+        sent: true,
+        received: true,
+      });
+      expect(snapshot.summary.received).toBe(1);
+      expect(
+        await db.select().from(schema.assignment).orderBy(schema.assignment.id),
+      ).toEqual(before);
     });
 
     it("saves the recipient's full name and shows it to their Santa without changing the account", async () => {

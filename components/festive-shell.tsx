@@ -36,7 +36,8 @@ export function FestiveShell({
         </Link>
         <nav className="festive-nav" aria-label="Основная навигация">
           <Link href="/#how">Как участвовать</Link>
-          <Link href="/garland">Карта гирлянды</Link>
+          <Link href="/#garland">Карта гирлянды</Link>
+          {organizer && <Link href="/garland">Карта организатора</Link>}
           {organizer && <Link href="/admin">Организатору</Link>}
           <Link
             className="festive-nav-account"

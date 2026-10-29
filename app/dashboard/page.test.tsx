@@ -84,7 +84,8 @@ describe("light festive participant cabinet with unchanged access", () => {
     expect(html).toContain('data-testid="existing-participation-form"');
     expect(html).toContain('data-testid="existing-wishlist"');
     expect(html).toContain('data-testid="existing-phone"');
-    expect(html).toContain('href="/garland"');
+    expect(html).toContain('href="/#garland"');
+    expect(html).not.toContain('href="/garland"');
     expect(html).not.toContain('href="/admin"');
     expect(html).not.toContain('href="/coordinator"');
   });
@@ -93,6 +94,7 @@ describe("light festive participant cabinet with unchanged access", () => {
     const html = renderToStaticMarkup(await DashboardPage());
     expect(html).toContain('href="/admin"');
     expect(html).toContain('href="/coordinator"');
+    expect(html).toContain('href="/garland"');
   });
   it("redirects unauthenticated visitors before fetching private data", async () => {
     mocks.user.mockResolvedValue(null);

@@ -120,7 +120,9 @@ export default async function DashboardPage() {
         actions={
           <>
             <Button asChild variant="outline" size="sm">
-              <Link href="/garland">Гирлянда</Link>
+              <Link href={admin ? "/garland" : "/#garland"}>
+                {admin ? "Карта организатора" : "Гирлянда"}
+              </Link>
             </Button>
             {(admin || !!staff?.scopes.length) && (
               <Button asChild variant="outline" size="sm">

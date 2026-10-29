@@ -62,6 +62,8 @@ describe("light festive coordinator cabinet with unchanged access", () => {
     )?.[0];
     expect(activeFilter).toContain('aria-current="page"');
     expect(html).not.toContain('href="/admin"');
+    expect(html).toContain('href="/#garland"');
+    expect(html).not.toContain('href="/garland"');
   });
   it("redirects guests before fetching private data", async () => {
     mocks.access.mockResolvedValue(null);

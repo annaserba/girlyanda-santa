@@ -95,7 +95,9 @@ export default async function CoordinatorPage({
               </Button>
             )}
             <Button asChild variant="outline" size="sm">
-              <Link href="/garland">Гирлянда</Link>
+              <Link href={access.admin ? "/garland" : "/#garland"}>
+                {access.admin ? "Карта организатора" : "Гирлянда"}
+              </Link>
             </Button>
           </>
         }

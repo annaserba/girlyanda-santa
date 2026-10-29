@@ -1,6 +1,7 @@
 import type { summarizeGifts } from "@/lib/garland-summary";
 import type { CSSProperties } from "react";
 import { GarlandMapCanvas } from "@/components/garland-map-canvas";
+import { canonical } from "@/lib/event-config";
 import {
   buildCityRing,
   placeCityLabels,
@@ -15,10 +16,12 @@ export function GarlandMap({
   summary,
   phase = "gifts",
   ringIntensity = 1,
+  cityDetails,
 }: {
   summary: ReturnType<typeof summarizeGifts>;
   phase?: "registration" | "gifts";
   ringIntensity?: number;
+  cityDetails?: Record<string, { names: string }>;
 }) {
   const cities = summary.cities.flatMap((city) => {
     const point = projectRussianLocation(city.location);
@@ -38,7 +41,7 @@ export function GarlandMap({
           className="garland-russia-svg w-full"
         >
           <title id="garland-map-title">
-            {`${phase === "registration" ? "Карта записи участников." : "Карта получения подарков."} Карта России. Опорные города и подтверждённые данные участников.`}
+            {`${cityDetails ? "Карта организатора." : ""} ${phase === "registration" ? "Карта записи участников." : "Карта получения подарков."} Карта России. Опорные города и подтверждённые данные участников.`}
           </title>
           <desc id="garland-map-description">
             Цветная линия — декоративная гирлянда городов, не тайные пары и не
@@ -106,24 +109,41 @@ export function GarlandMap({
           {cities.map((city) => {
             const { point } = city;
             const label = labels.get(city.city);
+            const detail = cityDetails?.[canonical(city.city)];
+            const marker = (
+              <circle
+                className={
+                  city.received
+                    ? "garland-city-marker garland-city-received"
+                    : "garland-city-marker"
+                }
+                r={6}
+                fill={
+                  city.received ? "#fbbf24" : city.total ? "#64748b" : "none"
+                }
+                stroke={city.total ? "#0f172a" : "#9baac3"}
+                strokeWidth={1.5}
+              />
+            );
             return (
               <g
                 key={city.city}
                 transform={`translate(${point[0]},${point[1]})`}
               >
-                <circle
-                  className={
-                    city.received
-                      ? "garland-city-marker garland-city-received"
-                      : "garland-city-marker"
-                  }
-                  r={6}
-                  fill={
-                    city.received ? "#fbbf24" : city.total ? "#64748b" : "none"
-                  }
-                  stroke={city.total ? "#0f172a" : "#9baac3"}
-                  strokeWidth={1.5}
-                />
+                {detail ? (
+                  <a
+                    href="#garland-participants"
+                    data-admin-city={city.city}
+                    className="garland-admin-city-link"
+                    aria-label={`${city.city}: показать участников`}
+                  >
+                    <circle r={14} fill="transparent" />
+                    {marker}
+                    <title>{city.city + "\n" + detail.names}</title>
+                  </a>
+                ) : (
+                  marker
+                )}
                 {label && (
                   <text
                     className="garland-map-city-label"
@@ -137,13 +157,15 @@ export function GarlandMap({
                     {city.city}
                   </text>
                 )}
-                <title>
-                  {!city.total
-                    ? city.city
-                    : phase === "registration"
-                      ? `${city.city}: записались ${city.total}`
-                      : `${city.city}: получено ${city.received} из ${city.total}`}
-                </title>
+                {!detail && (
+                  <title>
+                    {!city.total
+                      ? city.city
+                      : phase === "registration"
+                        ? `${city.city}: записались ${city.total}`
+                        : `${city.city}: получено ${city.received} из ${city.total}`}
+                  </title>
+                )}
               </g>
             );
           })}

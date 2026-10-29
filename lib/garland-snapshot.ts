@@ -4,7 +4,7 @@ import { db, first, schema } from "@/lib/db";
 import type { EventConfig } from "./event-config";
 import { summarizeGifts } from "./garland-summary";
 
-// Only aggregate-safe fields are selected. Neither page receives identities,
+// Only aggregate-safe fields are selected. The home page receives no identities,
 // contact details, pickup points, reveal tokens, or the assignment graph.
 export async function getGarlandSnapshot(config: EventConfig) {
   const draw = await first(

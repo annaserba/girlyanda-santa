@@ -8,12 +8,16 @@ const mocks = vi.hoisted(() => ({
   config: vi.fn(),
   snapshot: vi.fn(),
   settings: vi.fn(),
+  privateSnapshot: vi.fn(),
 }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.user }));
 vi.mock("@/lib/event-settings", () => ({ getEventConfig: mocks.config }));
 vi.mock("@/lib/settings", () => ({ getOgSettings: mocks.settings }));
 vi.mock("@/lib/garland-snapshot", () => ({
   getGarlandSnapshot: mocks.snapshot,
+}));
+vi.mock("@/lib/admin-garland-snapshot", () => ({
+  getAdminGarlandSnapshot: mocks.privateSnapshot,
 }));
 import Home from "./page";
 
@@ -91,6 +95,9 @@ describe("home map publication", () => {
     const html = renderToStaticMarkup(await Home());
     expect(html).toContain('href="/admin"');
     expect(html).toContain("Общая карта гирлянды");
+    expect(html).toContain('href="/garland"');
+    expect(html).not.toContain("data-admin-city");
+    expect(mocks.privateSnapshot).not.toHaveBeenCalled();
   });
   it("uses the deck artwork decoratively and keeps the real map separate", async () => {
     const html = renderToStaticMarkup(await Home());
