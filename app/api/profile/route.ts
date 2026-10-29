@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, isNotNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { db, first, schema } from "@/lib/db";
 import { badRequest } from "@/lib/api";
 import { getOrCreateParticipant } from "@/lib/session";
@@ -19,28 +19,33 @@ export async function PUT(req: NextRequest) {
     return badRequest(parsed.error.issues[0]?.message ?? "Проверьте анкету.");
   const { consent, ...profile } = parsed.data;
   let savedSite = profile.site;
+  let savedProfile;
   const error = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(2026, 1)`);
-    const assigned = await first(
+    const current = await first(
       tx
-        .select({ id: schema.assignment.id })
-        .from(schema.assignment)
-        .innerJoin(schema.draw, eq(schema.draw.id, schema.assignment.drawId))
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, participant.id)),
+    );
+    if (!current || current.userId !== participant.userId)
+      return "Анкета недоступна. Обновите страницу и войдите снова.";
+    const completed = await first(
+      tx
+        .select({ id: schema.draw.id })
+        .from(schema.draw)
         .where(
           and(
             eq(schema.draw.garlandVersion, 1),
-            or(
-              eq(schema.assignment.giverId, participant.id),
-              eq(schema.assignment.receiverId, participant.id),
-            ),
+            eq(schema.draw.status, "completed"),
           ),
         )
         .limit(1),
     );
-    if (assigned)
+    if (completed)
       return "После жеребьёвки анкету меняет только организатор по согласованию. Пожелания можно дополнять в списке ниже.";
     const config = await getEventConfig(tx);
-    if (consent && !config.registrationOpen)
+    if (consent && !current.consentAt && !config.registrationOpen)
       return "Приём анкет закрыт организатором.";
     if (consent && participant.userId) {
       const owner = await first(
@@ -68,18 +73,29 @@ export async function PUT(req: NextRequest) {
       }
     }
     savedSite = await resolveSiteName(tx, profile.city, profile.site);
-    await tx
+    [savedProfile] = await tx
       .update(schema.participant)
       .set({
         ...profile,
-        name: profile.name || participant.name,
+        name: profile.name || current.name,
         site: savedSite,
-        consentAt: consent ? new Date() : null,
+        consentAt: consent ? (current.consentAt ?? new Date()) : null,
       })
-      .where(eq(schema.participant.id, participant.id));
+      .where(eq(schema.participant.id, participant.id))
+      .returning({
+        name: schema.participant.name,
+        city: schema.participant.city,
+        site: schema.participant.site,
+        shift: schema.participant.shift,
+        track: schema.participant.track,
+        pickupPoint: schema.participant.pickupPoint,
+        wishes: schema.participant.wishes,
+        consentAt: schema.participant.consentAt,
+        reserveVolunteer: schema.participant.reserveVolunteer,
+      });
     return null;
   });
   return error
     ? badRequest(error)
-    : NextResponse.json({ ok: true, site: savedSite });
+    : NextResponse.json({ ok: true, site: savedSite, profile: savedProfile });
 }

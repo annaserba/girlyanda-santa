@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   admin: vi.fn(),
   staff: vi.fn(),
   select: vi.fn(),
+  first: vi.fn(),
   config: vi.fn(),
   history: vi.fn(),
   pairings: vi.fn(),
@@ -27,7 +28,7 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/db", async () => ({
   schema: await import("@/lib/db/schema"),
   db: { select: mocks.select },
-  first: async () => undefined,
+  first: mocks.first,
 }));
 vi.mock("@/lib/staff", () => ({ staffAccess: mocks.staff }));
 vi.mock("@/lib/event-settings", () => ({ getEventConfig: mocks.config }));
@@ -39,8 +40,10 @@ vi.mock("@/lib/pairings", () => ({
 vi.mock("@/components/sign-out-button", () => ({
   SignOutButton: () => <button>Выйти</button>,
 }));
-vi.mock("@/components/participation-form", () => ({
-  ParticipationForm: () => <form data-testid="existing-participation-form" />,
+vi.mock("@/components/participation-profile", () => ({
+  ParticipationProfile: ({ locked }: { locked: boolean }) => (
+    <div data-testid="participation-profile" data-locked={locked} />
+  ),
 }));
 vi.mock("@/components/wishlist-editor", () => ({
   WishlistEditor: () => <div data-testid="existing-wishlist" />,
@@ -81,7 +84,8 @@ describe("light festive participant cabinet with unchanged access", () => {
     expect(html.match(/class="admin-holiday-lights"/g)).toHaveLength(1);
     expect(html).toContain("Здравствуйте, Анна!");
     expect(html).toContain('id="dashboard-content"');
-    expect(html).toContain('data-testid="existing-participation-form"');
+    expect(html).toContain('data-testid="participation-profile"');
+    expect(html).toContain('data-locked="false"');
     expect(html).toContain('data-testid="existing-wishlist"');
     expect(html).toContain('data-testid="existing-phone"');
     expect(html).toContain('href="/#garland"');
@@ -101,5 +105,10 @@ describe("light festive participant cabinet with unchanged access", () => {
     await expect(DashboardPage()).rejects.toThrow("redirect:/login");
     expect(mocks.select).not.toHaveBeenCalled();
     expect(mocks.participant).not.toHaveBeenCalled();
+  });
+  it("locks the profile after the current event draw even without a personal assignment", async () => {
+    mocks.first.mockResolvedValueOnce({ id: 42 });
+    const html = renderToStaticMarkup(await DashboardPage());
+    expect(html).toContain('data-locked="true"');
   });
 });

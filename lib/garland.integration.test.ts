@@ -1052,6 +1052,111 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
         assignments.every((pair) => pair.giverId !== pair.receiverId),
       ).toBe(true);
     });
+    it("allows editing a submitted profile after enrollment closes and while a draw is scheduled", async () => {
+      const pending = await draft();
+      await db
+        .update(schema.draw)
+        .set({ scheduledAt: new Date("2099-11-17T09:00:00Z") })
+        .where(eq(schema.draw.id, pending.id));
+      const [before] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      state.actor = { id: "u1", role: "user" };
+      state.participant = before;
+      const response = await updateProfile(
+        profileRequest({
+          name: "Иванова Анна Сергеевна",
+          city: "Томск",
+          site: "",
+          track: "country",
+          pickupPoint: "ПВЗ 15, Томск",
+          wishes: "",
+          consent: true,
+          reserveVolunteer: true,
+        }),
+      );
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      const [saved] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      expect(saved).toMatchObject({
+        name: "Иванова Анна Сергеевна",
+        city: "Томск",
+        track: "country",
+        pickupPoint: "ПВЗ 15, Томск",
+        wishes: "",
+        reserveVolunteer: true,
+        consentAt: before.consentAt,
+      });
+      expect(result.profile).toEqual({
+        name: saved.name,
+        city: saved.city,
+        site: saved.site,
+        shift: saved.shift,
+        track: saved.track,
+        pickupPoint: saved.pickupPoint,
+        wishes: saved.wishes,
+        reserveVolunteer: saved.reserveVolunteer,
+        consentAt: saved.consentAt!.toISOString(),
+      });
+      expect(await db.select().from(schema.assignment)).toHaveLength(0);
+    });
+    it("allows withdrawal after enrollment closes but rejects rejoining from a stale session", async () => {
+      const [before] = await db
+        .select()
+        .from(schema.participant)
+        .where(eq(schema.participant.id, 1));
+      state.actor = { id: "u1", role: "user" };
+      state.participant = before;
+      const body = {
+        city: "Уфа",
+        site: "Склад",
+        track: "local",
+        consent: false,
+      };
+      expect((await updateProfile(profileRequest(body))).status).toBe(200);
+      const response = await updateProfile(
+        profileRequest({ ...body, consent: true }),
+      );
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toContain("Приём анкет закрыт");
+      expect(
+        (
+          await db
+            .select()
+            .from(schema.participant)
+            .where(eq(schema.participant.id, 1))
+        )[0].consentAt,
+      ).toBeNull();
+    });
+    it("rejects a first opt-in while enrollment is closed", async () => {
+      const [newcomer] = await db
+        .insert(schema.participant)
+        .values({ userId: "stranger", name: "Тестовый Новичок" })
+        .returning();
+      state.actor = { id: "stranger", role: "user" };
+      state.participant = newcomer;
+      const response = await updateProfile(
+        profileRequest({
+          city: "Уфа",
+          site: "Склад",
+          track: "local",
+          consent: true,
+        }),
+      );
+      expect(response.status).toBe(400);
+      expect(
+        (
+          await db
+            .select()
+            .from(schema.participant)
+            .where(eq(schema.participant.id, newcomer.id))
+        )[0],
+      ).toEqual(newcomer);
+    });
     it("freezes delivery profiles after draw while retaining all previous rows", async () => {
       state.actor = { id: "u1", role: "user" };
       state.participant = (
@@ -1086,6 +1191,26 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
             .where(eq(schema.participant.id, 1))
         )[0].city,
       ).toBe("Уфа");
+      const [newcomer] = await db
+        .insert(schema.participant)
+        .values({ userId: "stranger", name: "Тестовый Новичок" })
+        .returning();
+      state.actor = { id: "stranger", role: "user" };
+      state.participant = newcomer;
+      const response = await updateProfile(
+        profileRequest({ ...body, consent: false }),
+      );
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toContain("После жеребьёвки");
+      expect(
+        (
+          await db
+            .select()
+            .from(schema.participant)
+            .where(eq(schema.participant.id, newcomer.id))
+        )[0],
+      ).toEqual(newcomer);
+      expect(await db.select().from(schema.assignment)).toHaveLength(3);
     });
   },
 );

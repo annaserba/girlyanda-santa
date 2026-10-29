@@ -17,7 +17,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { WishlistEditor } from "@/components/wishlist-editor";
 import { PhoneEditor } from "@/components/phone-editor";
 import { PairingsCards } from "@/components/pairings-cards";
-import { ParticipationForm } from "@/components/participation-form";
+import { ParticipationProfile } from "@/components/participation-profile";
 import { GiftActions } from "@/components/gift-actions";
 import { RecipientDetails } from "@/lib/gift-display";
 import { getEventConfig } from "@/lib/event-settings";
@@ -34,6 +34,18 @@ export default async function DashboardPage() {
   const config = await getEventConfig();
   const staff = await staffAccess();
   const sites = await getSiteOptions();
+  const completedDraw = await first(
+    db
+      .select({ id: schema.draw.id })
+      .from(schema.draw)
+      .where(
+        and(
+          eq(schema.draw.garlandVersion, 1),
+          eq(schema.draw.status, "completed"),
+        ),
+      )
+      .limit(1),
+  );
   const currentDraws = db
     .select({ id: schema.draw.id })
     .from(schema.draw)
@@ -151,9 +163,9 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {participant && (
-              <ParticipationForm
+              <ParticipationProfile
                 participant={participant}
-                locked={!!latest || !!incoming}
+                locked={!!completedDraw || !!latest || !!incoming}
                 open={config.registrationOpen}
                 sites={sites}
               />

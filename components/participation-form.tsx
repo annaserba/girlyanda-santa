@@ -15,11 +15,15 @@ export function ParticipationForm({
   locked,
   open,
   sites = [],
+  onSaved,
+  onCancel,
 }: {
   participant: Participant;
   locked: boolean;
   open: boolean;
   sites?: SiteOption[];
+  onSaved?: (participant: Participant) => void;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const [track, setTrack] = useState(p.track ?? "local");
@@ -75,6 +79,13 @@ export function ParticipationForm({
       if (res.ok) {
         if (fullName.success) setName(fullName.data);
         if (typeof json.site === "string") setSite(json.site);
+        onSaved?.({
+          ...p,
+          ...json.profile,
+          consentAt: json.profile.consentAt
+            ? new Date(json.profile.consentAt)
+            : null,
+        });
         router.refresh();
       }
     } catch {
@@ -92,7 +103,9 @@ export function ParticipationForm({
         {locked
           ? "Жеребьёвка проведена, данные доставки зафиксированы."
           : !open
-            ? "Приём анкет закрыт."
+            ? p.consentAt
+              ? "Приём новых анкет закрыт. Свою анкету можно менять до жеребьёвки."
+              : "Приём анкет закрыт."
             : "Домашний адрес не указывайте."}
       </p>
       <fieldset disabled={locked || busy} className="space-y-4">
@@ -205,9 +218,18 @@ export function ParticipationForm({
           Чтобы отказаться до жеребьёвки, снимите согласие и сохраните анкету.
           После жеребьёвки обратитесь к организатору.
         </p>
-        <Button disabled={busy || !city || (track === "local" && !site.trim())}>
-          {busy ? "Сохраняем…" : "Сохранить анкету"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            disabled={busy || !city || (track === "local" && !site.trim())}
+          >
+            {busy ? "Сохраняем…" : "Сохранить анкету"}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Отменить изменения
+            </Button>
+          )}
+        </div>
       </fieldset>
       {message && (
         <p role="status" className="text-sm">
