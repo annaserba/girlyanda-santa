@@ -1,0 +1,11 @@
+Гирлянда Тайного Санты
+
+Based on Rodaviva29/secret-santa, branch v2, revision c1891c8.
+https://github.com/Rodaviva29/secret-santa
+Original copyright (c) 2024 João Chung. See LICENSE (MIT).
+
+The public history groups the adapted source by feature and does not reproduce
+the original development chronology. Runtime data and credentials are excluded.
+
+Geodata attribution and dataset-specific licenses: public/geodata-attribution.txt.
+Vendored Helm chart license: deployment/helm/charts/nxs-universal-chart/LICENSE.
