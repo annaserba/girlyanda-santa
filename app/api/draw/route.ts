@@ -70,54 +70,92 @@ export async function POST(req: NextRequest) {
     : null;
   const isFuture = scheduledAt != null && scheduledAt.getTime() > Date.now();
 
-  // Quick participant check up-front so scheduling a doomed draw fails fast.
-  const config = await getEventConfig();
-  if (config.registrationOpen)
-    return badRequest("Сначала закройте приём анкет в правилах события.");
-  const participants = (await db.select().from(schema.participant)).filter(
-    (p) => p.consentAt && profileReady(p),
-  );
-  if (participants.length < 3) {
-    return badRequest(
-      "Нужны минимум три подтверждённые анкеты: без подарков себе и взаимных пар.",
+  // Creation, cancellation, roster edits and execution share one event lock.
+  const prepared = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(2026, 1)`);
+    const completed = await first(
+      tx
+        .select({ id: schema.draw.id })
+        .from(schema.draw)
+        .where(
+          and(
+            eq(schema.draw.garlandVersion, 1),
+            eq(schema.draw.status, "completed"),
+          ),
+        )
+        .limit(1),
     );
-  }
-  if (isFuture) {
-    const exclusions = await db.select().from(schema.exclusion);
-    try {
-      runGarlandDraw(
-        participants,
-        exclusions.map((e) => [e.aId, e.bId]),
-        [],
-        config.ringPolicy,
-      );
-    } catch (err) {
-      if (err instanceof DrawError) return badRequest(err.message);
-      throw err;
+    if (completed)
+      return {
+        error:
+          "Гирлянда уже распределена. Повторная жеребьёвка запрещена; используйте резерв для замен.",
+      };
+    const pending = await first(
+      tx
+        .select({ id: schema.draw.id })
+        .from(schema.draw)
+        .where(
+          and(
+            eq(schema.draw.garlandVersion, 1),
+            eq(schema.draw.status, "draft"),
+          ),
+        )
+        .limit(1),
+    );
+    if (pending)
+      return {
+        error:
+          "Жеребьёвка уже запланирована. Сначала отмените её, чтобы создать новую.",
+      };
+    const config = await getEventConfig(tx);
+    if (config.registrationOpen)
+      return { error: "Сначала закройте приём анкет в правилах события." };
+    const participants = (await tx.select().from(schema.participant)).filter(
+      (p) => p.consentAt && profileReady(p),
+    );
+    if (participants.length < 3)
+      return {
+        error:
+          "Нужны минимум три подтверждённые анкеты: без подарков себе и взаимных пар.",
+      };
+    if (isFuture) {
+      const exclusions = await tx.select().from(schema.exclusion);
+      try {
+        runGarlandDraw(
+          participants,
+          exclusions.map((e) => [e.aId, e.bId]),
+          [],
+          config.ringPolicy,
+        );
+      } catch (err) {
+        if (err instanceof DrawError) return { error: err.message };
+        throw err;
+      }
     }
-  }
-
-  // Always create the draw row first (status draft).
-  const draw = (await first(
-    db
-      .insert(schema.draw)
-      .values({
-        name: cfg.name,
-        garlandVersion: 1,
-        budget: config.budget,
-        ringPolicy: config.ringPolicy,
-        deliverReveal: cfg.deliverReveal,
-        deliverEmail: false,
-        deliverPush: false,
-        previewLimit: cfg.previewLimit,
-        allowSelfDraw: false,
-        historyDepth: cfg.historyDepth,
-        status: "draft",
-        scheduledAt,
-        pairsVisibleAt,
-      })
-      .returning(),
-  ))!;
+    const draw = (await first(
+      tx
+        .insert(schema.draw)
+        .values({
+          name: cfg.name,
+          garlandVersion: 1,
+          budget: config.budget,
+          ringPolicy: config.ringPolicy,
+          deliverReveal: cfg.deliverReveal,
+          deliverEmail: false,
+          deliverPush: false,
+          previewLimit: cfg.previewLimit,
+          allowSelfDraw: false,
+          historyDepth: cfg.historyDepth,
+          status: "draft",
+          scheduledAt,
+          pairsVisibleAt,
+        })
+        .returning(),
+    ))!;
+    return { draw };
+  });
+  if (prepared.error) return badRequest(prepared.error);
+  const draw = prepared.draw!;
 
   // Future-scheduled: leave as a draft for the in-process scheduler.
   if (isFuture) {

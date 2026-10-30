@@ -17,6 +17,12 @@ const state = vi.hoisted(() => ({
   participant: null as unknown,
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+  redirect: (path: string) => {
+    throw new Error(`redirect:${path}`);
+  },
+}));
 vi.mock("@/lib/session", () => ({
   getCurrentUser: async () => state.actor,
   isAdmin: async () => state.actor?.role === "admin",
@@ -37,6 +43,14 @@ import { getSiteOptions, resolveSiteName } from "./sites";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RecipientDetails } from "./gift-display";
 import { getAdminGarlandSnapshot } from "./admin-garland-snapshot";
+import { POST as registerParticipant } from "@/app/api/signup/route";
+import { POST as addWish, GET as ownWishes } from "@/app/api/wishlist/route";
+import { DELETE as deleteWish } from "@/app/api/wishlist/[id]/route";
+import { getGarlandDisplay } from "./garland-display";
+import { canonical } from "./event-config";
+import { runDueDraws } from "./scheduler";
+import { buildBulkMailto } from "./bulk-email";
+import DashboardPage from "@/app/dashboard/page";
 
 async function ensureSite(city: string, name: string) {
   await db.transaction(async (tx) => {
@@ -713,6 +727,607 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")(
       expect(login.status).toBe(200);
       expect(login.headers.get("set-cookie")).toContain("session_token");
     });
+    it("runs the complete participant journey: real signup and login, both tracks, four rings, private wishes, reserve and all gift lights", async () => {
+      await db.execute(
+        sql`TRUNCATE work_site_alias, work_site, gift_audit, assignment, coordinator_scope, participant, draw, "user", app_setting RESTART IDENTITY CASCADE`,
+      );
+      await config(true);
+      const { auth } = await import("@/lib/auth");
+      const password = "JourneyTestsOnly2026!";
+      const accounts: {
+        cookie: string;
+        userId: string;
+        participantId: number;
+        role: string;
+        name: string;
+        email: string;
+      }[] = [];
+      async function signup(index: number, city: string) {
+        const name =
+          index === 0
+            ? "Проверочный Организатор"
+            : `Проверочный Участник${String(index).padStart(2, "0")}`;
+        const email = `journey-${index}@example.test`;
+        const body = {
+          name,
+          email,
+          password,
+          phone: `+7999123${String(index).padStart(4, "0")}`,
+          city,
+        };
+        const response = await registerParticipant(
+          new NextRequest("http://test.internal/api/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+        );
+        expect(await response.json()).toEqual({ ok: true });
+        expect(response.status).toBe(200);
+        const login = await auth.api.signInEmail({
+          body: { email, password },
+          asResponse: true,
+        });
+        expect(login.status).toBe(200);
+        const cookie = login.headers.get("set-cookie")!.split(";")[0];
+        const session = await auth.api.getSession({
+          headers: new Headers({ cookie }),
+        });
+        expect(session?.user.email).toBe(email);
+        const [person] = await db
+          .select()
+          .from(schema.participant)
+          .where(eq(schema.participant.userId, session!.user.id));
+        expect(person).toMatchObject({
+          name,
+          city,
+          track: null,
+          consentAt: null,
+        });
+        const account = {
+          cookie,
+          userId: session!.user.id,
+          participantId: person.id,
+          role: session!.user.role ?? "user",
+          name,
+          email,
+        };
+        accounts.push(account);
+        return account;
+      }
+      async function act(account: (typeof accounts)[number]) {
+        const session = await auth.api.getSession({
+          headers: new Headers({ cookie: account.cookie }),
+        });
+        expect(session?.user.id).toBe(account.userId);
+        state.actor = {
+          id: session!.user.id,
+          role: session!.user.role ?? "user",
+        };
+        state.participant = (
+          await db
+            .select()
+            .from(schema.participant)
+            .where(eq(schema.participant.id, account.participantId))
+        )[0];
+      }
+      const organizer = await signup(0, "Уфа");
+      expect(organizer.role).toBe("admin");
+      expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary.total).toBe(0);
+      const profiles = new Map<
+        number,
+        {
+          name: string;
+          city: string;
+          site: string;
+          shift: string;
+          track: "local" | "country";
+          pickupPoint: string;
+          wishes: string;
+          reserveVolunteer: boolean;
+          consent: boolean;
+        }
+      >();
+      for (let i = 1; i <= 12; i++) {
+        const city = i <= 9 ? "Уфа" : ["Москва", "Казань", "Томск"][i - 10];
+        const account = await signup(i, city);
+        expect(account.role).toBe("user");
+        expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary.total).toBe(
+          i - 1,
+        );
+        await act(account);
+        const profile = {
+          name: account.name,
+          city,
+          site:
+            i <= 3 ? (i === 2 ? "  ОФИС  " : "Офис") : i <= 9 ? "Склад" : "",
+          shift: i <= 3 || i >= 10 ? "" : i <= 6 ? "День" : "Ночь",
+          track: (i <= 9 ? "local" : "country") as "local" | "country",
+          pickupPoint: i >= 10 ? `ПВЗ-${i}, ${city}` : "",
+          wishes: i === 10 ? "" : `Анкета-пожелание-${i}`,
+          reserveVolunteer: true,
+          consent: true,
+        };
+        if (i === 1) {
+          expect(
+            (
+              await updateProfile(
+                profileRequest({ ...profile, consent: false }),
+              )
+            ).status,
+          ).toBe(200);
+          expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary.total).toBe(
+            0,
+          );
+          expect(
+            (await updateProfile(profileRequest({ ...profile, site: "" })))
+              .status,
+          ).toBe(400);
+        }
+        if (i === 10)
+          expect(
+            (
+              await updateProfile(
+                profileRequest({ ...profile, pickupPoint: "" }),
+              )
+            ).status,
+          ).toBe(400);
+        expect((await updateProfile(profileRequest(profile))).status).toBe(200);
+        profiles.set(account.participantId, profile);
+        const snapshot = await getGarlandSnapshot(EVENT_DEFAULTS);
+        expect(snapshot.phase).toBe("registration");
+        expect(snapshot.summary).toMatchObject({ total: i, received: 0 });
+        expect(await db.select().from(schema.assignment)).toHaveLength(0);
+        const publicData = JSON.stringify(snapshot);
+        expect(publicData).not.toMatch(
+          /Проверочный|@example\.test|ПВЗ-|Анкета-пожелание|revealToken|phone/,
+        );
+      }
+      const display = getGarlandDisplay(
+        await getGarlandSnapshot(EVENT_DEFAULTS),
+        EVENT_DEFAULTS,
+      );
+      expect(display.summary.cities).toHaveLength(10);
+      for (const city of ["Уфа", "Москва", "Казань", "Томск"]) {
+        const marker = display.summary.cities.find((c) => c.city === city)!;
+        expect(marker.location).not.toBeNull();
+        expect(marker.total).toBe(city === "Уфа" ? 9 : 1);
+        expect(marker.received).toBe(0);
+      }
+      const edited = accounts[1];
+      await act(edited);
+      const original = profiles.get(edited.participantId)!;
+      expect(
+        (
+          await updateProfile(
+            profileRequest({
+              ...original,
+              city: "Казань",
+              track: "country",
+              site: "",
+              pickupPoint: "ПВЗ смены трека",
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      expect(
+        (await getGarlandSnapshot(EVENT_DEFAULTS)).summary.cities.find(
+          (c) => c.city === "Казань",
+        )!.total,
+      ).toBe(2);
+      expect((await updateProfile(profileRequest(original))).status).toBe(200);
+      expect(
+        (await updateProfile(profileRequest({ ...original, consent: false })))
+          .status,
+      ).toBe(200);
+      expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary.total).toBe(11);
+      expect((await updateProfile(profileRequest(original))).status).toBe(200);
+      expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary.total).toBe(12);
+      expect(
+        (await startDraw(jsonRequest({ name: "Не организатор" }))).status,
+      ).toBe(403);
+      await act(organizer);
+      expect(
+        (await startDraw(jsonRequest({ name: "Слишком рано" }))).status,
+      ).toBe(400);
+      expect(
+        (
+          await updateEvent(
+            jsonRequest({
+              ...EVENT_DEFAULTS,
+              registrationOpen: false,
+              mapPublished: true,
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      await act(edited);
+      expect(
+        (
+          await updateProfile(
+            profileRequest({ ...original, wishes: "Обновлённые пожелания" }),
+          )
+        ).status,
+      ).toBe(200);
+      await act(edited);
+      const savedProfileView = renderToStaticMarkup(await DashboardPage());
+      expect(savedProfileView).toContain("Обновлённые пожелания");
+      expect(savedProfileView).toContain("Редактировать анкету");
+      const late = await signup(13, "Сочи");
+      await act(late);
+      expect(
+        (
+          await updateProfile(
+            profileRequest({
+              name: late.name,
+              city: "Сочи",
+              site: "Офис",
+              track: "local",
+              consent: true,
+            }),
+          )
+        ).status,
+      ).toBe(400);
+      await act(organizer);
+      const drawResponse = await startDraw(
+        jsonRequest({ name: "Сквозная проверка" }),
+      );
+      expect(drawResponse.status).toBe(201);
+      const drawResult = await drawResponse.json();
+      expect(drawResult).toMatchObject({ assignments: 12, rings: 4 });
+      const gifts = await db
+        .select()
+        .from(schema.assignment)
+        .orderBy(schema.assignment.id);
+      const edges = gifts.map((g) => [g.giverId, g.receiverId, g.revealToken]);
+      expect(new Set(gifts.map((g) => g.giverId)).size).toBe(12);
+      expect(new Set(gifts.map((g) => g.receiverId)).size).toBe(12);
+      for (const gift of gifts) {
+        expect(gift.giverId).not.toBe(gift.receiverId);
+        expect(
+          gifts.some(
+            (p) =>
+              p.giverId === gift.receiverId && p.receiverId === gift.giverId,
+          ),
+        ).toBe(false);
+        const giver = profiles.get(gift.giverId)!;
+        const receiver = profiles.get(gift.receiverId)!;
+        expect(giver.track).toBe(receiver.track);
+        if (giver.track === "local") {
+          expect(canonical(giver.city)).toBe(canonical(receiver.city));
+          expect(canonical(giver.site)).toBe(canonical(receiver.site));
+          expect(canonical(giver.shift)).toBe(canonical(receiver.shift));
+        } else expect(canonical(giver.city)).not.toBe(canonical(receiver.city));
+      }
+      const privateMap = await getAdminGarlandSnapshot(EVENT_DEFAULTS);
+      expect(privateMap.people).toHaveLength(12);
+      expect(privateMap.gifts).toHaveLength(12);
+      expect(privateMap.people.map((p) => p.id)).not.toContain(
+        late.participantId,
+      );
+      expect(JSON.stringify(privateMap)).not.toMatch(
+        /@example\.test|ПВЗ-|revealToken|phone/,
+      );
+      await act(accounts[10]);
+      const ownGift = gifts.find(
+        (g) => g.giverId === accounts[10].participantId,
+      )!;
+      const receiverAccount = accounts.find(
+        (a) => a.participantId === ownGift.receiverId,
+      )!;
+      await act(receiverAccount);
+      const wishResponse = await addWish(
+        jsonRequest({
+          text: "ПОЖЕЛАНИЕ-ДЛЯ-МОЕГО-САНТЫ",
+          url: "https://example.test/gift",
+        }),
+      );
+      expect(wishResponse.status).toBe(201);
+      const wish = await wishResponse.json();
+      expect(
+        (await (await ownWishes()).json()).some(
+          (w: { id: number }) => w.id === wish.id,
+        ),
+      ).toBe(true);
+      await act(accounts[10]);
+      expect(
+        (
+          await deleteWish(jsonRequest({}), {
+            params: Promise.resolve({ id: String(wish.id) }),
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        await db
+          .select()
+          .from(schema.wishlistItem)
+          .where(eq(schema.wishlistItem.id, wish.id)),
+      ).toHaveLength(1);
+      const cabinet = renderToStaticMarkup(await DashboardPage());
+      expect(cabinet).toContain(receiverAccount.name);
+      expect(cabinet).toContain("ПОЖЕЛАНИЕ-ДЛЯ-МОЕГО-САНТЫ");
+      expect(cabinet).not.toContain("Редактировать анкету");
+      const santa = accounts.find(
+        (a) =>
+          a.participantId ===
+          gifts.find((g) => g.receiverId === accounts[10].participantId)!
+            .giverId,
+      )!;
+      expect(cabinet).not.toContain(santa.name);
+      expect(
+        (
+          await updateProfile(
+            profileRequest(profiles.get(accounts[10].participantId)!),
+          )
+        ).status,
+      ).toBe(400);
+      state.actor = null;
+      state.participant = null;
+      expect((await giftRequest(gifts[0].id, { action: "sent" })).status).toBe(
+        401,
+      );
+      await act(late);
+      expect((await giftRequest(gifts[0].id, { action: "sent" })).status).toBe(
+        403,
+      );
+      for (let i = 0; i < gifts.length; i++) {
+        const gift = gifts[i];
+        await act(accounts.find((a) => a.participantId === gift.giverId)!);
+        const body = {
+          action: "sent",
+          kind: ["physical", "skill", "certificate"][i % 3],
+          note: `Передача-${i}`,
+        };
+        expect((await giftRequest(gift.id, body)).status).toBe(200);
+        expect((await giftRequest(gift.id, body)).status).toBe(200);
+        expect(
+          (await giftRequest(gift.id, { action: "received" })).status,
+        ).toBe(403);
+      }
+      expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary).toMatchObject({
+        total: 12,
+        received: 0,
+      });
+      expect(
+        (await db.select().from(schema.giftAudit)).filter(
+          (a) => a.action === "sent",
+        ),
+      ).toHaveLength(12);
+      const reserveGift = gifts[0];
+      await act(
+        accounts.find((a) => a.participantId === reserveGift.receiverId)!,
+      );
+      expect(
+        (await giftRequest(reserveGift.id, { action: "request_reserve" }))
+          .status,
+      ).toBe(200);
+      const volunteer = accounts.find(
+        (a) =>
+          a.role !== "admin" &&
+          a.participantId !== reserveGift.receiverId &&
+          a.participantId !== late.participantId,
+      )!;
+      await act(organizer);
+      expect(
+        (
+          await giftRequest(reserveGift.id, {
+            action: "assign_reserve",
+            volunteerId: volunteer.participantId,
+          })
+        ).status,
+      ).toBe(200);
+      await act(volunteer);
+      expect(
+        (
+          await giftRequest(reserveGift.id, {
+            action: "reserve_sent",
+            kind: "certificate",
+            note: "Сертификат у координатора",
+          })
+        ).status,
+      ).toBe(200);
+      expect((await getGarlandSnapshot(EVENT_DEFAULTS)).summary.received).toBe(
+        0,
+      );
+      for (let i = 0; i < gifts.length; i++) {
+        const gift = gifts[i];
+        await act(accounts.find((a) => a.participantId === gift.receiverId)!);
+        expect(
+          (await giftRequest(gift.id, { action: "received" })).status,
+        ).toBe(200);
+        expect(
+          (await giftRequest(gift.id, { action: "received" })).status,
+        ).toBe(200);
+        const snapshot = await getGarlandSnapshot(EVENT_DEFAULTS);
+        expect(snapshot.phase).toBe("gifts");
+        expect(snapshot.summary).toMatchObject({ total: 12, received: i + 1 });
+        for (const city of snapshot.summary.cities) {
+          const received = gifts
+            .slice(0, i + 1)
+            .filter((p) => profiles.get(p.receiverId)!.city === city.city);
+          expect(city.received).toBe(received.length);
+          for (const site of city.sites) {
+            expect(site.received).toBe(
+              received.filter(
+                (p) =>
+                  canonical(profiles.get(p.receiverId)!.site) ===
+                  canonical(
+                    site.site === "Площадка не указана" ? "" : site.site,
+                  ),
+              ).length,
+            );
+          }
+        }
+      }
+      const final = await getGarlandSnapshot(EVENT_DEFAULTS);
+      expect(final.summary.cities.every((c) => c.received === c.total)).toBe(
+        true,
+      );
+      const savedGifts = await db
+        .select()
+        .from(schema.assignment)
+        .orderBy(schema.assignment.id);
+      expect(
+        savedGifts.map((g) => [g.giverId, g.receiverId, g.revealToken]),
+      ).toEqual(edges);
+      expect(savedGifts.every((g) => g.sentAt && g.receivedAt)).toBe(true);
+      expect(
+        savedGifts.find((g) => g.id === reserveGift.id)!.reserveState,
+      ).toBe("resolved");
+      expect(
+        (await db.select().from(schema.giftAudit)).filter(
+          (a) => a.action === "received",
+        ),
+      ).toHaveLength(12);
+      const mail = new URL(
+        buildBulkMailto(
+          accounts
+            .slice(1, 13)
+            .map((a) => a.email)
+            .join(";"),
+          "Итоги обмена",
+          "Войдите в кабинет: https://santa.example.test/dashboard",
+        )!,
+      );
+      expect(mail.searchParams.get("bcc")!.split(",")).toHaveLength(12);
+      expect(mail.searchParams.has("to")).toBe(false);
+      expect(mail.searchParams.get("body")).not.toMatch(/reveal|Проверочный/);
+      await act(organizer);
+      const finalPrivateMap = await getAdminGarlandSnapshot(EVENT_DEFAULTS);
+      expect(finalPrivateMap.summary.received).toBe(12);
+      expect(finalPrivateMap.gifts.every((g) => g.sent && g.received)).toBe(
+        true,
+      );
+      expect((await startDraw(jsonRequest({ name: "Повторная" }))).status).toBe(
+        400,
+      );
+      expect(
+        (await db.select().from(schema.assignment))
+          .map((g) => [g.giverId, g.receiverId, g.revealToken])
+          .sort(),
+      ).toEqual([...edges].sort());
+    }, 180_000);
+    it("schedules, cancels and executes a due draw only once", async () => {
+      const scheduled = await startDraw(
+        jsonRequest({
+          name: "По расписанию",
+          scheduledAt: "2099-11-17T09:00:00Z",
+        }),
+      );
+      expect(scheduled.status).toBe(201);
+      const payload = await scheduled.json();
+      expect(payload.scheduled).toBe(true);
+      expect(await runDueDraws()).toBe(0);
+      expect(await db.select().from(schema.assignment)).toHaveLength(0);
+      expect(
+        (await cancelDraw(jsonRequest({ id: payload.draw.id }))).status,
+      ).toBe(200);
+      const pending = await draft();
+      await db
+        .update(schema.draw)
+        .set({ scheduledAt: new Date("2020-01-01T00:00:00Z") })
+        .where(eq(schema.draw.id, pending.id));
+      expect(await runDueDraws()).toBe(1);
+      expect(await runDueDraws()).toBe(0);
+      expect(await db.select().from(schema.assignment)).toHaveLength(3);
+    });
+    it("rejects scheduling another draw after the event is already completed", async () => {
+      await executeDraw(await draft());
+      const response = await startDraw(
+        jsonRequest({
+          name: "Лишнее расписание",
+          scheduledAt: "2099-11-17T09:00:00Z",
+        }),
+      );
+      expect(response.status).toBe(400);
+      expect(await db.select().from(schema.draw)).toHaveLength(1);
+      expect(await db.select().from(schema.assignment)).toHaveLength(3);
+    });
+    it("serializes concurrent scheduling requests and permits a new launch only after cancellation", async () => {
+      const requests = await Promise.all(
+        Array.from({ length: 4 }, () =>
+          startDraw(
+            jsonRequest({
+              name: "Одно расписание",
+              scheduledAt: "2099-11-17T09:00:00Z",
+            }),
+          ),
+        ),
+      );
+      expect(requests.filter((r) => r.status === 201)).toHaveLength(1);
+      expect(requests.filter((r) => r.status === 400)).toHaveLength(3);
+      const [scheduled] = await db.select().from(schema.draw);
+      expect(await db.select().from(schema.draw)).toHaveLength(1);
+      expect(await db.select().from(schema.assignment)).toHaveLength(0);
+      expect(
+        (await startDraw(jsonRequest({ name: "Сразу поверх расписания" })))
+          .status,
+      ).toBe(400);
+      expect((await cancelDraw(jsonRequest({ id: scheduled.id }))).status).toBe(
+        200,
+      );
+      expect(
+        (await startDraw(jsonRequest({ name: "После отмены" }))).status,
+      ).toBe(201);
+      expect(await db.select().from(schema.assignment)).toHaveLength(3);
+    });
+    it.each([
+      [
+        "Рядом: только два человека",
+        ["Уфа", "Уфа"],
+        ["Склад", "Склад"],
+        "local",
+      ],
+      [
+        "Рядом: площадки разделены 2+1",
+        ["Уфа", "Уфа", "Уфа"],
+        ["Склад", "Склад", "Офис"],
+        "local",
+      ],
+      [
+        "Межгород: все из одного города",
+        ["Уфа", "Уфа", "Уфа"],
+        ["", "", ""],
+        "country",
+      ],
+      [
+        "Межгород: несовместимое распределение 2+1",
+        ["Уфа", "Уфа", "Москва"],
+        ["", "", ""],
+        "country",
+      ],
+    ] as const)(
+      "rejects incompatible rings without partial data: %s",
+      async (_label, cities, sites, track) => {
+        await db.delete(schema.participant);
+        await db
+          .insert(schema.participant)
+          .values(
+            cities.map((city, i) => ({
+              name: `Проверочный Участник${i}`,
+              city,
+              site: sites[i],
+              track,
+              pickupPoint: track === "country" ? "ПВЗ проверки" : "",
+              consentAt: new Date(),
+            })),
+          );
+        for (const scheduledAt of [null, "2099-11-17T09:00:00Z"]) {
+          const response = await startDraw(
+            jsonRequest({ name: "Невозможный состав", scheduledAt }),
+          );
+          expect(response.status).toBe(400);
+          expect(await db.select().from(schema.draw)).toHaveLength(0);
+          expect(await db.select().from(schema.assignment)).toHaveLength(0);
+          const snapshot = await getGarlandSnapshot(EVENT_DEFAULTS);
+          expect(snapshot.phase).toBe("registration");
+          expect(snapshot.summary).toMatchObject({
+            total: cities.length,
+            received: 0,
+          });
+        }
+      },
+    );
     it("rolls back infeasible tracks without partial assignments", async () => {
       await db
         .update(schema.participant)

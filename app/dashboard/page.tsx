@@ -19,7 +19,7 @@ import { PhoneEditor } from "@/components/phone-editor";
 import { PairingsCards } from "@/components/pairings-cards";
 import { ParticipationProfile } from "@/components/participation-profile";
 import { GiftActions } from "@/components/gift-actions";
-import { RecipientDetails } from "@/lib/gift-display";
+import { RecipientDetails, RecipientWishlist } from "@/lib/gift-display";
 import { getEventConfig } from "@/lib/event-settings";
 import { staffAccess } from "@/lib/staff";
 import { HolidayPageHeader, HolidayShell } from "@/components/holiday-shell";
@@ -116,6 +116,21 @@ export default async function DashboardPage() {
       )
     : undefined;
 
+  const recipientIds = [
+    ...new Set([
+      ...(receiver ? [receiver.id] : []),
+      ...reserveTasks
+        .filter((task) => !task.receivedAt)
+        .map((task) => task.receiverId),
+    ]),
+  ];
+  const recipientWishes = recipientIds.length
+    ? await db
+        .select()
+        .from(schema.wishlistItem)
+        .where(inArray(schema.wishlistItem.participantId, recipientIds))
+    : [];
+
   // Draws whose full pairing list has been made public.
   const visiblePairings = await getVisiblePairings();
 
@@ -186,6 +201,11 @@ export default async function DashboardPage() {
                 person={receiver}
                 local={participant?.track === "local"}
               />
+              <RecipientWishlist
+                items={recipientWishes.filter(
+                  (wish) => wish.participantId === receiver.id,
+                )}
+              />
               {myDraw.budget != null && (
                 <p className="text-sm text-muted-foreground">
                   Бюджет: <span className="font-medium">{myDraw.budget}</span>
@@ -240,10 +260,17 @@ export default async function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {person && (
-                    <RecipientDetails
-                      person={person}
-                      local={person.track === "local"}
-                    />
+                    <>
+                      <RecipientDetails
+                        person={person}
+                        local={person.track === "local"}
+                      />
+                      <RecipientWishlist
+                        items={recipientWishes.filter(
+                          (wish) => wish.participantId === person.id,
+                        )}
+                      />
+                    </>
                   )}
                   {task.reserveSentAt ? (
                     <p className="text-sm">
