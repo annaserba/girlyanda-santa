@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { EVENT_DEFAULTS, type EventConfig } from "@/lib/event-config";
 interface Props {
   addresses: string[];
   missingEmails: number;
-  appUrl: string;
+  appUrl?: string;
   config?: EventConfig;
 }
 
@@ -28,7 +28,7 @@ const textareaClassName =
 export function BulkEmailComposer({
   addresses,
   missingEmails,
-  appUrl,
+  appUrl = "",
   config = EVENT_DEFAULTS,
 }: Props) {
   const [customRecipients, setCustomRecipients] = useState<string | null>(null);
@@ -39,11 +39,22 @@ export function BulkEmailComposer({
     `Здравствуйте!\n\nЖеребьёвка «Гирлянды Тайного Санты» завершена.\n\nЧтобы узнать своего получателя и его пожелания, войдите в личный кабинет:\n${appUrl.replace(/\/$/, "")}/dashboard\n\nИспользуйте свою учётную запись. Пожалуйста, сохраните имя получателя в тайне.\n\nОрганизаторы «Гирлянды Тайного Санты»`,
   );
   const [copyStatus, setCopyStatus] = useState("");
+  const [currentUrl, setCurrentUrl] = useState(appUrl);
+  useEffect(() => {
+    const origin = window.location.origin;
+    setCurrentUrl(origin);
+    setBody((text) =>
+      text.replace(
+        `${appUrl.replace(/\/$/, "")}/dashboard`,
+        `${origin}/dashboard`,
+      ),
+    );
+  }, [appUrl]);
   const recipients = customRecipients ?? addresses.join("\n");
   const parsed = parseRecipients(recipients);
   const mailto = buildBulkMailto(recipients, subject, body);
   function template(kind: "invite" | "result" | "reminder" | "finale") {
-    const base = appUrl.replace(/\/$/, "");
+    const base = currentUrl.replace(/\/$/, "");
     const texts = {
       invite: [
         "Гирлянда Тайного Санты: приглашаем участвовать",
@@ -59,7 +70,7 @@ export function BulkEmailComposer({
       ],
       finale: [
         "Гирлянда Тайного Санты: итоги",
-        `Здравствуйте!\n\nСпасибо за участие! Посмотрите, сколько огоньков зажглось на общей карте:\n${base}/garland\n\nЕсли ещё не получили подарок, сообщите координатору или запросите помощь в кабинете.\n${base}/dashboard\n\nОрганизаторы «Гирлянды Тайного Санты»`,
+        `Здравствуйте!\n\nСпасибо за участие! Посмотрите, сколько огоньков зажглось на общей карте:\n${base}/#garland\n\nЕсли ещё не получили подарок, сообщите координатору или запросите помощь в кабинете.\n${base}/dashboard\n\nОрганизаторы «Гирлянды Тайного Санты»`,
       ],
     };
     setSubject(texts[kind][0]);
@@ -209,8 +220,8 @@ export function BulkEmailComposer({
             onChange={(event) => setBody(event.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Для работы в контуре замените localhost в ссылке на внутренний адрес
-            сайта, доступный сотрудникам.
+            Ссылки в шаблонах ведут на текущий сайт. Используйте адрес,
+            доступный сотрудникам в контуре.
           </p>
           <p className="text-xs text-muted-foreground">
             Список рассылки не создаёт аккаунты. Чтобы увидеть результат,

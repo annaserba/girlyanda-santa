@@ -101,12 +101,18 @@ afterEach(() => {
 });
 describe("atomic draw execution without external delivery", () => {
   it("ignores enabled notification flags on older scheduled draws", async () => {
+    vi.stubEnv("BETTER_AUTH_URL", "https://santa-server.example.test");
     const result = await executeDraw(legacyDraw);
     expect(result.assignments).toBe(3);
     expect(result.draw.status).toBe("completed");
     expect(result).not.toHaveProperty("delivery");
     expect(result.rings).toBe(1);
     expect(result.revealLinks).toHaveLength(3);
+    expect(
+      result.revealLinks.every((link) =>
+        link.url.startsWith("https://santa-server.example.test/reveal/"),
+      ),
+    ).toBe(true);
     expect(fetch).not.toHaveBeenCalled();
     expect(mocks.execute).toHaveBeenCalledOnce();
     expect(mocks.set).toHaveBeenCalledWith(

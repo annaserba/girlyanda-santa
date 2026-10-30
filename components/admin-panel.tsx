@@ -346,7 +346,6 @@ export function AdminPanel({
             participants.filter((p) => p.consentAt).length -
             participantEmails.length
           }
-          appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3003"}
         />
       )}
 

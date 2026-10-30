@@ -2,6 +2,8 @@
 .local-backups/
 .local-deployment/
 .local-notes/
+deployment/private/
+deployment/images/
 logs
 *.log
 npm-debug.log*
