@@ -1,0 +1,3165 @@
+{
+  "metadata": {
+    "date": "2026-10-30",
+    "timezone": "Europe/Simferopol",
+    "tested_revision": "a27f6b284840e7a61c8552bc1376a5f6c2ac3b90",
+    "baseline_revision": "bec3485745432e7866e16aadd0ce48c8fb86d6ab",
+    "started": "2026-10-30T10:35:55+03:00",
+    "finished": "2026-10-30T10:36:31+03:00",
+    "environment": {
+      "node": "v22.23.4",
+      "next": "16.4.3",
+      "postgres": "17.11",
+      "platform": "linux/arm64",
+      "database": "santa_verification"
+    },
+    "passed": 409,
+    "failed": 0,
+    "unit_passed": 365,
+    "database_passed": 44,
+    "database_cases_skipped_in_unit_and_executed_separately": 44,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "production_build_method": "Next.js production build with cached local Node/dependency images; no working database credentials at build time",
+    "browser_e2e": "not_executed_localhost_access_blocked"
+  },
+  "initial_database_run": {
+    "passed": 37,
+    "failed": 2,
+    "failed_cases": [
+      "isolated PostgreSQL lifecycle runs the complete participant journey: real signup and login, both tracks, four rings, private wishes, reserve and all gift lights",
+      "isolated PostgreSQL lifecycle rejects scheduling another draw after the event is already completed"
+    ]
+  },
+  "steps": [
+    {
+      "id": "01",
+      "name": "Регистрация",
+      "status": "Пройдено · API/БД",
+      "expected": "Создать аккаунт с ФИО, почтой, номером РФ и городом.",
+      "actual": "14 синтетических аккаунтов созданы через настоящий обработчик регистрации; регистрация сама не включает человека в обмен. Проверки неверных ФИО, телефонов, городов и почты прошли в unit-наборе.",
+      "evidence": "E01; app/api/signup/route.test.ts; lib/phone.test.ts"
+    },
+    {
+      "id": "02",
+      "name": "Вход и сессия",
+      "status": "Пройдено · auth",
+      "expected": "Войти по паролю и подтвердить личность по сессии.",
+      "actual": "Все 14 аккаунтов вошли через Better Auth; getSession распознал cookie и вернул нужного пользователя. Первый аккаунт — организатор, последующие — обычные участники.",
+      "evidence": "E01; supports password signup and login"
+    },
+    {
+      "id": "03",
+      "name": "Аккаунт без участия",
+      "status": "Пройдено · API/БД",
+      "expected": "Не добавлять неподтверждённую анкету на гирлянду.",
+      "actual": "До согласия счётчик не увеличивается; аккаунт организатора и поздний аккаунт без согласия в обмен не попали.",
+      "evidence": "E01; updates registration aggregates"
+    },
+    {
+      "id": "04",
+      "name": "Трек «Рядом»",
+      "status": "Пройдено · API/БД",
+      "expected": "Требовать площадку и сохранять корректную анкету.",
+      "actual": "Пустая площадка даёт 400. Варианты «Офис» и «  ОФИС  » относятся к одной площадке.",
+      "evidence": "E01; rejects local profiles without a site"
+    },
+    {
+      "id": "05",
+      "name": "Площадки и смены",
+      "status": "Пройдено · API/БД",
+      "expected": "Разделить локальные группы по площадкам и сменам.",
+      "actual": "Созданы три отдельные локальные группы по 3 человека: Офис, Склад/День, Склад/Ночь. Назначения не вышли за пределы групп.",
+      "evidence": "E01; lib/garland-draw.test.ts"
+    },
+    {
+      "id": "06",
+      "name": "Трек «Через всю страну»",
+      "status": "Пройдено · API/БД",
+      "expected": "Требовать ПВЗ; допускать пустые площадку и пожелания.",
+      "actual": "Без ПВЗ — 400. Три анкеты из Москвы, Казани и Томска сохранены; одна без пожеланий. Межгородские пары всегда из разных городов.",
+      "evidence": "E01; saves intercity profiles without sites or wishes"
+    },
+    {
+      "id": "07",
+      "name": "Просмотр и правки анкеты",
+      "status": "Пройдено · API/SSR",
+      "expected": "Показывать сохранённую анкету и разрешать правки до жеребьёвки.",
+      "actual": "После сохранения серверный рендер содержит новые пожелания. При закрытом приёме участник всё ещё видит кнопку редактирования и может изменить поданную анкету. Клики по кнопкам в браузере не проверены.",
+      "evidence": "E01; components/participation-profile.test.tsx"
+    },
+    {
+      "id": "08",
+      "name": "Смена трека и города",
+      "status": "Пройдено · API/БД",
+      "expected": "Перенести участника в другой трек и обновить агрегаты.",
+      "actual": "Участник временно переведён из Уфы/«Рядом» в Казань/«Страна»: Казань выросла с 1 до 2; после возврата состав восстановился. Получатели до жеребьёвки не создавались.",
+      "evidence": "E01"
+    },
+    {
+      "id": "09",
+      "name": "Отказ от участия",
+      "status": "Пройдено · API/БД",
+      "expected": "Убрать анкету из состава при снятии согласия.",
+      "actual": "Число участников изменилось 12 → 11 → 12 при отказе и повторном согласии до закрытия приёма. Повторное согласие после закрытия отдельно отклонено.",
+      "evidence": "E01; allows withdrawal after enrollment closes"
+    },
+    {
+      "id": "10",
+      "name": "Общая гирлянда до жеребьёвки",
+      "status": "Пройдено · данные/SSR",
+      "expected": "Показывать только обезличенные данные и реальные города.",
+      "actual": "12 анкет, 4 города; с 8 базовыми географическими точками сформированы 10 разных маркеров. Новые Казань и Томск получили локальные координаты. Имен, контактов, ПВЗ и секретных токенов в публичном снимке нет.",
+      "evidence": "E01; lib/russia-map.test.tsx; lib/garland-display.test.ts"
+    },
+    {
+      "id": "11",
+      "name": "Права доступа",
+      "status": "Пройдено · API/SSR",
+      "expected": "Отказать гостю, постороннему и координатору чужой площадки.",
+      "actual": "Гость не меняет подарок: 401. Посторонний участник: 403. Обычный участник не запускает жеребьёвку. /garland закрыт гостям, участникам и координаторам; права координатора сверяются с PostgreSQL.",
+      "evidence": "E01; enforces actual coordinator scope; app/garland/page.test.tsx"
+    },
+    {
+      "id": "12",
+      "name": "Жеребьёвка при открытом приёме",
+      "status": "Пройдено · API/БД",
+      "expected": "Запретить распределение до закрытия приёма.",
+      "actual": "API вернул 400, преждевременные назначения не появились.",
+      "evidence": "E01; app/api/draw/route.test.ts"
+    },
+    {
+      "id": "13",
+      "name": "Закрытие приёма",
+      "status": "Пройдено · API/БД",
+      "expected": "Блокировать новые вступления, сохраняя правки уже поданных анкет.",
+      "actual": "Поздний аккаунт из Сочи создан, но вступление отклонено: 400. Уже подтверждённая анкета изменена: 200.",
+      "evidence": "E01; rejects a first opt-in while enrollment is closed"
+    },
+    {
+      "id": "14",
+      "name": "Жеребьёвка двух треков",
+      "status": "Пройдено · API/БД",
+      "expected": "Каждому дать одного получателя и одного дарителя.",
+      "actual": "201; 12 назначений; 4 кольца. У всех уникальные даритель и получатель. Нет подарков себе и взаимных пар. Все локальные и межгородские ограничения сохранены.",
+      "evidence": "E01"
+    },
+    {
+      "id": "15",
+      "name": "Невозможный состав",
+      "status": "Пройдено · API/БД",
+      "expected": "Не создавать частичные назначения или пустую историю.",
+      "actual": "Проверены 4 состава: 2 локальных участника; площадки 2+1; один межгородской город; межгород 2+1 по городам. Для каждого проверены запуск сейчас и расписание: 400, 0 назначений, 0 черновиков.",
+      "evidence": "rejects incompatible rings without partial data (4 cases)"
+    },
+    {
+      "id": "16",
+      "name": "Получатель и его пожелания",
+      "status": "Пройдено · API/SSR",
+      "expected": "Показать Санте ФИО получателя и добавленные после жеребьёвки идеи.",
+      "actual": "После исправления дополнительное пожелание и ссылка появились в кабинете нужного Санты. Чужое удаление не удалило запись. Имя входящего Санты в кабинете не раскрыто.",
+      "evidence": "E01; QA-B01"
+    },
+    {
+      "id": "17",
+      "name": "Фиксация анкеты после жеребьёвки",
+      "status": "Пройдено · API/SSR",
+      "expected": "Оставить просмотр, заблокировав самостоятельные правки.",
+      "actual": "API правки вернул 400. В серверном рендере больше нет кнопки редактирования. У неподобранного позднего аккаунта правки также блокируются.",
+      "evidence": "E01; freezes delivery profiles after draw"
+    },
+    {
+      "id": "18",
+      "name": "Отметка отправки",
+      "status": "Пройдено · API/БД",
+      "expected": "Разрешить отправку дарителю, не зажигая огонёк.",
+      "actual": "Все 12 подарков отмечены как отправленные. Проверены обычный подарок, навык и сертификат, сохранение заметок и повторное действие. Записей отправки в журнале ровно 12; получено всё ещё 0.",
+      "evidence": "E01"
+    },
+    {
+      "id": "19",
+      "name": "Санта-резерв",
+      "status": "Пройдено · API/БД",
+      "expected": "Сохранить запрос, назначить добровольца и дождаться получателя.",
+      "actual": "Получатель запросил помощь, организатор назначил резерв, доброволец отметил резервный сертификат. Отправка резерва не зажгла огонёк; получение перевело резерв в resolved. Неправомерные действия отдельно отклонены.",
+      "evidence": "E01; requires a valid reserve volunteer"
+    },
+    {
+      "id": "20",
+      "name": "Подтверждение получения",
+      "status": "Пройдено · API/БД",
+      "expected": "Зажечь огонёк только по подтверждению получателя/уполномоченного координатора.",
+      "actual": "Получатель каждого из 12 подарков подтвердил получение. После каждого шага проверены общее число, нужный город и площадка. Повторные нажатия не добавили огоньки или записи журнала.",
+      "evidence": "E01; a giver cannot confirm receipt"
+    },
+    {
+      "id": "21",
+      "name": "Финальная гирлянда",
+      "status": "Пройдено · данные/SSR",
+      "expected": "Правильно показать все полученные подарки.",
+      "actual": "Публичный итог: 12 из 12. В каждом городе received равно total. Закрытая карта организатора показывает 12 отправленных и полученных подарков. Фактический цвет пикселей в браузере не проверен.",
+      "evidence": "E01; lib/map-render.test.tsx"
+    },
+    {
+      "id": "22",
+      "name": "Неизменность секретных пар",
+      "status": "Пройдено · API/БД",
+      "expected": "Не менять пары из-за поздней регистрации и отметок статусов.",
+      "actual": "Все giverId, receiverId и revealToken после полного обмена совпадают с исходными. Повторная жеребьёвка отклонена; после исправления нельзя создать и повторное расписание.",
+      "evidence": "E01; rejects scheduling another draw; QA-B02"
+    },
+    {
+      "id": "23",
+      "name": "Расписание и отмена",
+      "status": "Пройдено · API/БД",
+      "expected": "До срока не запускать, черновик отменять, просроченный запуск выполнять один раз.",
+      "actual": "Будущее задание не выполнено; отмена удалила черновик. Просроченное задание выполнено один раз; следующий tick — 0 запусков. Завершённую жеребьёвку отменить нельзя.",
+      "evidence": "schedules, cancels and executes a due draw only once; cancels only unexecuted drafts"
+    },
+    {
+      "id": "24",
+      "name": "Одновременные команды",
+      "status": "Пройдено · API/БД",
+      "expected": "Исключить двойное расписание и повторные назначения.",
+      "actual": "Четыре одновременных запроса расписания дали 1×201 и 3×400. После отмены разрешён новый запуск. Отдельный тест 12 конкурентных executeDraw выполнил ровно одну жеребьёвку.",
+      "evidence": "serializes concurrent scheduling requests; executes a draw once under concurrent calls"
+    },
+    {
+      "id": "25",
+      "name": "Координатор, импорт и площадки",
+      "status": "Пройдено · API/БД",
+      "expected": "Соблюдать области доступа и атомарность импорта/объединения.",
+      "actual": "Проверены согласие, чужая площадка, дубликаты, отмена всего импорта при ошибке, регистр названий, переименование и объединение. Старые названия разрешаются через алиасы, подарочные пары сохраняются.",
+      "evidence": "imports a coordinator list atomically; renames/merges identities integration cases"
+    },
+    {
+      "id": "26",
+      "name": "QR и общая рассылка",
+      "status": "Пройдено · API/структура",
+      "expected": "Использовать текущий адрес сайта и BCC без раскрытия персональных пар.",
+      "actual": "QR API отдаёт SVG для текущего origin. Общее письмо содержит 12 адресов BCC, без To и персональных назначений. Unit-тест сохраняет все 1500 синтетических адресов и русские символы.",
+      "evidence": "E01; app/api/registration-qr/route.test.ts; lib/bulk-email.test.ts"
+    },
+    {
+      "id": "27",
+      "name": "Клики, адаптивность и анимация",
+      "status": "Не проверено · браузер",
+      "expected": "Пройти кнопки, поиск, фокус, отмену изменений и посмотреть карту на разных экранах.",
+      "actual": "Доступ к localhost через браузер в этой сессии заблокирован. Проверены только SSR-разметка, исходная геометрия и настройки анимации; скриншоты и визуальная приёмка отсутствуют.",
+      "evidence": "Ограничение окружения"
+    },
+    {
+      "id": "28",
+      "name": "Фактическая почта и доставка",
+      "status": "Не проверено · внешние системы",
+      "expected": "Проверить почтовый клиент и реальную доставку подарка.",
+      "actual": "Письма людям не отправлялись. Приложение формирует mailto/BCC и хранит ручные статусы подарка; не подтверждает работу Outlook, SMTP, перевозчика или ПВЗ.",
+      "evidence": "За пределами автоматического контура"
+    }
+  ],
+  "defects": [
+    {
+      "id": "QA-B01",
+      "severity": "P2 · средняя",
+      "title": "Дополнительные пожелания не видны Санте в личном кабинете",
+      "before": "Получатель добавляет пункт в «Мои пожелания» после жеребьёвки. Запись есть в PostgreSQL, но в кабинете его Санты текст отсутствует. Новый сквозной тест падал на проверке этого текста в SSR.",
+      "fix": "Кабинет выбирает пожелания только своего получателя и активных получателей резерва; показывает их в соответствующей карточке.",
+      "after": "Сквозной тест видит сохранённое пожелание у нужного Санты; права на чужую запись не расширены.",
+      "files": ["app/dashboard/page.tsx", "lib/gift-display.tsx"]
+    },
+    {
+      "id": "QA-B02",
+      "severity": "P2 · средняя",
+      "title": "После завершения можно создать лишнюю жеребьёвку по расписанию",
+      "before": "POST с будущей датой после успешного распределения возвращал 201 вместо 400. Создавался лишний черновик; уже выданные пары при этом были защищены исполнителем и не менялись.",
+      "fix": "Создание выполняется под общей блокировкой события. Завершённое событие и уже существующий черновик проверяются до вставки; одновременно допускается только один ожидающий запуск.",
+      "after": "Повторное расписание — 400. Четыре конкурентных запроса создали ровно одно задание. Отмена и последующий корректный запуск работают.",
+      "files": ["app/api/draw/route.ts", "app/api/draw/route.test.ts"]
+    }
+  ],
+  "limits": [
+    "Это функциональная проверка обработчиков, PostgreSQL и серверного React-рендеринга, а не браузерный E2E-прогон. HTTP-маршрутизация Next.js, браузерное сохранение cookie, reverse proxy и TLS в целевом контуре этим запуском не проверены.",
+    "В главном связном сценарии регистрация и вход используют настоящую библиотеку авторизации и реальную сессию. Личность для прямых вызовов обработчиков передаётся тестовым адаптером lib/session; в остальных интеграционных сценариях роли задаются фикстурами.",
+    "Не проверены реальные клики, поиск и прокрутка селектов, переключение формы/просмотра, отмена несохранённых правок, фокус, клавиатура, мобильные размеры, контраст, кадры анимации и доступность для скринридеров.",
+    "Публичная карта обновляется при новом запросе страницы. Автообновление отключено по ранее выбранному поведению; прохождение теста не означает мгновенное изменение уже открытого экрана другого пользователя.",
+    "Статусы «отправлено» и «получено» — подтверждения людей в приложении. Они не проверяют факт физической передачи или доставки. Реальная отправка письма из Outlook, ограничения BCC и работа корпоративной почты не выполнялись.",
+    "Тест на 1500 участников проверяет алгоритм, а не 1500 одновременных пользователей. Нагрузочный тест сервера и промышленный контур CI/Vault/Argo в этот прогон не входят."
+  ],
+  "manual_followup": [
+    "На отдельном стенде повторить шаги 01–24 мышью и клавиатурой на широком экране и телефоне; снять скриншоты состояний.",
+    "Проверить поиск города и площадки, создание новой площадки, переключение трека, сохранение и отмену правок без потери введённых данных.",
+    "В двух браузерных сессиях проверить: участник видит только своего получателя; организатор видит /garland; главная остаётся обезличенной.",
+    "Обновить главную после отправки и после получения; убедиться, что огонёк меняется только во втором случае, а анимация работает.",
+    "Проверить QR сканером телефона из корпоративной сети и подготовку тестового письма в Outlook с разрешёнными тестовыми адресами."
+  ],
+  "cases": [
+    {
+      "file": "app/auth-forms.test.tsx",
+      "name": "personal and work email wording makes personal email explicitly acceptable at signup",
+      "status": "passed",
+      "duration_ms": 112.34504199999992,
+      "id": "QA-T0001"
+    },
+    {
+      "file": "app/auth-forms.test.tsx",
+      "name": "personal and work email wording uses the same neutral email label at login",
+      "status": "passed",
+      "duration_ms": 23.58145800000011,
+      "id": "QA-T0002"
+    },
+    {
+      "file": "app/auth-forms.test.tsx",
+      "name": "personal and work email wording uses the same light garland theme for 'Вход'",
+      "status": "passed",
+      "duration_ms": 18.253083999999944,
+      "id": "QA-T0003"
+    },
+    {
+      "file": "app/auth-forms.test.tsx",
+      "name": "personal and work email wording uses the same light garland theme for 'Регистрация'",
+      "status": "passed",
+      "duration_ms": 36.54795800000011,
+      "id": "QA-T0004"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication places the two gift tracks immediately after the dates, before the map: published=true",
+      "status": "passed",
+      "duration_ms": 214.58666699999958,
+      "id": "QA-T0005"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication places the two gift tracks immediately after the dates, before the map: published=false",
+      "status": "passed",
+      "duration_ms": 7.758499999999913,
+      "id": "QA-T0006"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication shows the published anonymous map and registration links to guests",
+      "status": "passed",
+      "duration_ms": 95.57841699999972,
+      "id": "QA-T0007"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication does not even query public map data when publication is disabled",
+      "status": "passed",
+      "duration_ms": 5.3579579999995985,
+      "id": "QA-T0008"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication lets signed-in participants view home without redirecting",
+      "status": "passed",
+      "duration_ms": 29.911457999999584,
+      "id": "QA-T0009"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication keeps the organizer shortcut for admins",
+      "status": "passed",
+      "duration_ms": 50.46245799999997,
+      "id": "QA-T0010"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication uses the deck artwork decoratively and keeps the real map separate",
+      "status": "passed",
+      "duration_ms": 65.82795799999985,
+      "id": "QA-T0011"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication reads dates and budget from the event settings instead of hardcoding the slide examples",
+      "status": "passed",
+      "duration_ms": 28.747707999999875,
+      "id": "QA-T0012"
+    },
+    {
+      "file": "app/home.test.tsx",
+      "name": "home map publication returns to factual registration counts once eight participants have opted in",
+      "status": "passed",
+      "duration_ms": 58.51495900000009,
+      "id": "QA-T0013"
+    },
+    {
+      "file": "components/participation-profile.test.tsx",
+      "name": "viewing a saved participation profile shows the submitted fields without an editable form and permits editing before the draw",
+      "status": "passed",
+      "duration_ms": 37.19612499999994,
+      "id": "QA-T0014"
+    },
+    {
+      "file": "components/participation-profile.test.tsx",
+      "name": "viewing a saved participation profile still allows an opted-in participant to edit after new enrollment closes",
+      "status": "passed",
+      "duration_ms": 3.2717499999998836,
+      "id": "QA-T0015"
+    },
+    {
+      "file": "components/participation-profile.test.tsx",
+      "name": "viewing a saved participation profile keeps the complete submitted profile visible after the draw without editing controls",
+      "status": "passed",
+      "duration_ms": 2.6642080000001442,
+      "id": "QA-T0016"
+    },
+    {
+      "file": "components/participation-profile.test.tsx",
+      "name": "viewing a saved participation profile opens an empty participation form for a new participant while enrollment is open",
+      "status": "passed",
+      "duration_ms": 49.771875000000136,
+      "id": "QA-T0017"
+    },
+    {
+      "file": "components/participation-profile.test.tsx",
+      "name": "viewing a saved participation profile does not offer a new opt-in after enrollment closes",
+      "status": "passed",
+      "duration_ms": 2.2835829999999078,
+      "id": "QA-T0018"
+    },
+    {
+      "file": "lib/admin-garland.test.tsx",
+      "name": "personal map inspection and public-map separation filters all names and sites without case or ё/е differences",
+      "status": "passed",
+      "duration_ms": 5.048957999999857,
+      "id": "QA-T0019"
+    },
+    {
+      "file": "lib/admin-garland.test.tsx",
+      "name": "personal map inspection and public-map separation renders city selection, names, real pair labels and gift states for admins",
+      "status": "passed",
+      "duration_ms": 92.36558300000024,
+      "id": "QA-T0020"
+    },
+    {
+      "file": "lib/admin-garland.test.tsx",
+      "name": "personal map inspection and public-map separation keeps the same summary anonymous when used on the home page",
+      "status": "passed",
+      "duration_ms": 15.415874999999687,
+      "id": "QA-T0021"
+    },
+    {
+      "file": "lib/admin-garland.test.tsx",
+      "name": "personal map inspection and public-map separation paginates large lists rather than rendering every name",
+      "status": "passed",
+      "duration_ms": 55.25279199999977,
+      "id": "QA-T0022"
+    },
+    {
+      "file": "lib/admin-holiday.test.tsx",
+      "name": "subtle holiday styling without changing organizer tools retains the four section controls, registration QR, search and Russian phone input",
+      "status": "passed",
+      "duration_ms": 56.25462499999958,
+      "id": "QA-T0023"
+    },
+    {
+      "file": "lib/admin-holiday.test.tsx",
+      "name": "subtle holiday styling without changing organizer tools keeps the light theme scoped and the decoration non-interactive and static",
+      "status": "passed",
+      "duration_ms": 0.7194579999995767,
+      "id": "QA-T0024"
+    },
+    {
+      "file": "lib/admin-holiday.test.tsx",
+      "name": "subtle holiday styling without changing organizer tools keeps normal text contrast at least 4.5:1: foreground / background",
+      "status": "passed",
+      "duration_ms": 0.3045000000001892,
+      "id": "QA-T0025"
+    },
+    {
+      "file": "lib/admin-holiday.test.tsx",
+      "name": "subtle holiday styling without changing organizer tools keeps normal text contrast at least 4.5:1: primary-foreground / primary",
+      "status": "passed",
+      "duration_ms": 0.13854199999968841,
+      "id": "QA-T0026"
+    },
+    {
+      "file": "lib/admin-holiday.test.tsx",
+      "name": "subtle holiday styling without changing organizer tools keeps normal text contrast at least 4.5:1: muted-foreground / card",
+      "status": "passed",
+      "duration_ms": 0.10304199999973207,
+      "id": "QA-T0027"
+    },
+    {
+      "file": "lib/admin-holiday.test.tsx",
+      "name": "subtle holiday styling without changing organizer tools keeps normal text contrast at least 4.5:1: accent-foreground / accent",
+      "status": "passed",
+      "duration_ms": 0.0782920000001468,
+      "id": "QA-T0028"
+    },
+    {
+      "file": "lib/auth-client.test.ts",
+      "name": "portable authentication address uses the current site for login instead of the build-time address: http://santa.internal:3003",
+      "status": "passed",
+      "duration_ms": 186.638708,
+      "id": "QA-T0029"
+    },
+    {
+      "file": "lib/auth-client.test.ts",
+      "name": "portable authentication address uses the current site for login instead of the build-time address: https://santa.example.test",
+      "status": "passed",
+      "duration_ms": 2.0922500000000355,
+      "id": "QA-T0030"
+    },
+    {
+      "file": "lib/bulk-email.test.ts",
+      "name": "bulk email accepts Outlook-style pasted lists and deduplicates addresses",
+      "status": "passed",
+      "duration_ms": 5.496208000000024,
+      "id": "QA-T0031"
+    },
+    {
+      "file": "lib/bulk-email.test.ts",
+      "name": "bulk email does not silently send a partial list when an address is invalid",
+      "status": "passed",
+      "duration_ms": 1.1372910000000047,
+      "id": "QA-T0032"
+    },
+    {
+      "file": "lib/bulk-email.test.ts",
+      "name": "bulk email places everyone in BCC and preserves Russian text and plus addresses",
+      "status": "passed",
+      "duration_ms": 1.850500000000011,
+      "id": "QA-T0033"
+    },
+    {
+      "file": "lib/bulk-email.test.ts",
+      "name": "bulk email keeps header-like input inside the subject and body fields",
+      "status": "passed",
+      "duration_ms": 2.3702090000000453,
+      "id": "QA-T0034"
+    },
+    {
+      "file": "lib/bulk-email.test.ts",
+      "name": "bulk email includes all 1500 synthetic recipients in one message",
+      "status": "passed",
+      "duration_ms": 29.380292000000054,
+      "id": "QA-T0035"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication does not make any network request while CD is disabled",
+      "status": "passed",
+      "duration_ms": 16.497375000000034,
+      "id": "QA-T0036"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication submits only the tested dev revision and does not issue an extra sync",
+      "status": "passed",
+      "duration_ms": 4.103167000000099,
+      "id": "QA-T0037"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication syncs test from its explicit manual pipeline job without pruning",
+      "status": "passed",
+      "duration_ms": 2.2105830000000424,
+      "id": "QA-T0038"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication syncs prod from its explicit manual pipeline job without pruning",
+      "status": "passed",
+      "duration_ms": 1.5716659999999365,
+      "id": "QA-T0039"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication rejects a manifest pointing at a different image before any API call",
+      "status": "passed",
+      "duration_ms": 2.7341659999999592,
+      "id": "QA-T0040"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication refuses non-HTTPS Argo endpoints",
+      "status": "passed",
+      "duration_ms": 1.290791000000013,
+      "id": "QA-T0041"
+    },
+    {
+      "file": "lib/deployment-publish.test.ts",
+      "name": "explicitly enabled and gated Argo CD publication does not disclose API error bodies or continue to sync after a failure",
+      "status": "passed",
+      "duration_ms": 1.3295419999999467,
+      "id": "QA-T0042"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract renders dev without secrets, unresolved tokens or writes",
+      "status": "passed",
+      "duration_ms": 44.444082999999864,
+      "id": "QA-T0043"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract renders test without secrets, unresolved tokens or writes",
+      "status": "passed",
+      "duration_ms": 15.62974999999983,
+      "id": "QA-T0044"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract renders prod without secrets, unresolved tokens or writes",
+      "status": "passed",
+      "duration_ms": 8.727167000000009,
+      "id": "QA-T0045"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract pins production code and image to the same release tag",
+      "status": "passed",
+      "duration_ms": 4.036624999999958,
+      "id": "QA-T0046"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract pins dev and test to the verified full commit instead of an unchecked branch",
+      "status": "passed",
+      "duration_ms": 4.882583999999952,
+      "id": "QA-T0047"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract refuses unconfigured or unsafe origin ",
+      "status": "passed",
+      "duration_ms": 1.990833000000066,
+      "id": "QA-T0048"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract refuses unconfigured or unsafe origin http://santa.company.internal",
+      "status": "passed",
+      "duration_ms": 1.3662080000001424,
+      "id": "QA-T0049"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract refuses unconfigured or unsafe origin https://santa.example.invalid",
+      "status": "passed",
+      "duration_ms": 1.6316249999999854,
+      "id": "QA-T0050"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract refuses unconfigured or unsafe origin https://private:secret@company.internal",
+      "status": "passed",
+      "duration_ms": 2.2964580000000296,
+      "id": "QA-T0051"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract refuses unconfigured or unsafe origin https://santa.company.internal/path",
+      "status": "passed",
+      "duration_ms": 1.0794580000001588,
+      "id": "QA-T0052"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract refuses unconfigured or unsafe origin $CI_ENV_URL_DEV",
+      "status": "passed",
+      "duration_ms": 0.9034159999998792,
+      "id": "QA-T0053"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract requires the actual repository and registry instead of guessing another project's addresses",
+      "status": "passed",
+      "duration_ms": 1.4269580000000133,
+      "id": "QA-T0054"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract allows explicit corporate repository, image, namespace and Vault path overrides",
+      "status": "passed",
+      "duration_ms": 1.3786669999999503,
+      "id": "QA-T0055"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract reuses the local universal chart and keeps migrations outside the serving process",
+      "status": "passed",
+      "duration_ms": 16.06162499999982,
+      "id": "QA-T0056"
+    },
+    {
+      "file": "lib/deployment.test.ts",
+      "name": "GitLab / Helm / Argo CD deployment contract runs verification before image builds and gates production manually",
+      "status": "passed",
+      "duration_ms": 9.393000000000029,
+      "id": "QA-T0057"
+    },
+    {
+      "file": "lib/draw-runner.test.ts",
+      "name": "atomic draw execution without external delivery ignores enabled notification flags on older scheduled draws",
+      "status": "passed",
+      "duration_ms": 41.6557499999999,
+      "id": "QA-T0058"
+    },
+    {
+      "file": "lib/draw-runner.test.ts",
+      "name": "atomic draw execution without external delivery refuses an already completed draw after taking the row lock",
+      "status": "passed",
+      "duration_ms": 8.408624999999574,
+      "id": "QA-T0059"
+    },
+    {
+      "file": "lib/draw-runner.test.ts",
+      "name": "atomic draw execution without external delivery does not assign gifts while registration is open",
+      "status": "passed",
+      "duration_ms": 3.895625000000109,
+      "id": "QA-T0060"
+    },
+    {
+      "file": "lib/draw-runner.test.ts",
+      "name": "atomic draw execution without external delivery does not persist partial results when a track group is too small",
+      "status": "passed",
+      "duration_ms": 2.1371249999997417,
+      "id": "QA-T0061"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw throws with fewer than 2 participants",
+      "status": "passed",
+      "duration_ms": 3.8811659999999506,
+      "id": "QA-T0062"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw produces a valid derangement (no self-assignment)",
+      "status": "passed",
+      "duration_ms": 160.09108399999997,
+      "id": "QA-T0063"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw respects symmetric exclusions across many runs",
+      "status": "passed",
+      "duration_ms": 85.26416700000004,
+      "id": "QA-T0064"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw avoids history when feasible (soft constraint)",
+      "status": "passed",
+      "duration_ms": 7.523916999999983,
+      "id": "QA-T0065"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw throws when exclusions make assignment impossible",
+      "status": "passed",
+      "duration_ms": 0.5588750000000573,
+      "id": "QA-T0066"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw ignores the removed self-draw option from legacy callers",
+      "status": "passed",
+      "duration_ms": 109.38520800000003,
+      "id": "QA-T0067"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw never falls back to self-assignment when exclusions are impossible",
+      "status": "passed",
+      "duration_ms": 0.8444170000000213,
+      "id": "QA-T0068"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw always matches two participants with each other",
+      "status": "passed",
+      "duration_ms": 13.382166999999981,
+      "id": "QA-T0069"
+    },
+    {
+      "file": "lib/draw.test.ts",
+      "name": "runDraw handles a tightly-constrained-but-solvable case",
+      "status": "passed",
+      "duration_ms": 42.192541000000006,
+      "id": "QA-T0070"
+    },
+    {
+      "file": "lib/festive-assets.test.ts",
+      "name": "original festive presentation assets bundles gift-ring locally as a valid PNG",
+      "status": "passed",
+      "duration_ms": 5.4518339999999625,
+      "id": "QA-T0071"
+    },
+    {
+      "file": "lib/festive-assets.test.ts",
+      "name": "original festive presentation assets bundles link locally as a valid PNG",
+      "status": "passed",
+      "duration_ms": 1.92612500000007,
+      "id": "QA-T0072"
+    },
+    {
+      "file": "lib/festive-assets.test.ts",
+      "name": "original festive presentation assets bundles send locally as a valid PNG",
+      "status": "passed",
+      "duration_ms": 1.2746670000000222,
+      "id": "QA-T0073"
+    },
+    {
+      "file": "lib/festive-assets.test.ts",
+      "name": "original festive presentation assets bundles people locally as a valid PNG",
+      "status": "passed",
+      "duration_ms": 1.394042000000013,
+      "id": "QA-T0074"
+    },
+    {
+      "file": "lib/festive-assets.test.ts",
+      "name": "original festive presentation assets bundles globe locally as a valid PNG",
+      "status": "passed",
+      "duration_ms": 0.9185420000000022,
+      "id": "QA-T0075"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts preserves factual counts at 0 participants",
+      "status": "passed",
+      "duration_ms": 157.30449999999973,
+      "id": "QA-T0076"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts preserves factual counts at 1 participants",
+      "status": "passed",
+      "duration_ms": 3.6502080000000205,
+      "id": "QA-T0077"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts preserves factual counts at 7 participants",
+      "status": "passed",
+      "duration_ms": 1.2484999999996944,
+      "id": "QA-T0078"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts preserves factual counts at 8 participants",
+      "status": "passed",
+      "duration_ms": 1.5552079999997659,
+      "id": "QA-T0079"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts preserves factual counts at 9 participants",
+      "status": "passed",
+      "duration_ms": 5.292207999999846,
+      "id": "QA-T0080"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts preserves factual counts at 1500 participants",
+      "status": "passed",
+      "duration_ms": 46.55808300000035,
+      "id": "QA-T0081"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts keeps eight geographic anchors with zero people, gifts and sites when empty",
+      "status": "passed",
+      "duration_ms": 5.666374999999789,
+      "id": "QA-T0082"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts adds a participant's new city to the anchors using offline coordinates",
+      "status": "passed",
+      "duration_ms": 1.4027499999997417,
+      "id": "QA-T0083"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts keeps base cities at any attendance and allows Krasnodar only as an actual participant city",
+      "status": "passed",
+      "duration_ms": 2.3470000000002074,
+      "id": "QA-T0084"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts merges a factual city by normalized name and prefers organiser coordinates",
+      "status": "passed",
+      "duration_ms": 1.319166000000223,
+      "id": "QA-T0085"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts uses a known city anchor when actual coordinates are missing, without changing counts",
+      "status": "passed",
+      "duration_ms": 1.185291000000234,
+      "id": "QA-T0086"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts changes only decoration by date, never confirmed gifts or registration phase",
+      "status": "passed",
+      "duration_ms": 2.5729999999998654,
+      "id": "QA-T0087"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "reference cities without fictional registrations or gifts does not share mutable anchors across requests",
+      "status": "passed",
+      "duration_ms": 1.1961670000000595,
+      "id": "QA-T0088"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2026-10-01T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.5086660000001757,
+      "id": "QA-T0089"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2026-11-15T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.37945899999976973,
+      "id": "QA-T0090"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2026-11-17T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.5124159999995754,
+      "id": "QA-T0091"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2026-12-05T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.4760830000000169,
+      "id": "QA-T0092"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2026-12-26T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.3463329999999587,
+      "id": "QA-T0093"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2026-12-29T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.46287500000016735,
+      "id": "QA-T0094"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses configured date milestones: 2027-01-01T12:00:00Z",
+      "status": "passed",
+      "duration_ms": 0.3682920000001104,
+      "id": "QA-T0095"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh uses Moscow midnight and remains stable within a calendar day",
+      "status": "passed",
+      "duration_ms": 1.2080000000000837,
+      "id": "QA-T0096"
+    },
+    {
+      "file": "lib/garland-display.test.ts",
+      "name": "calendar decoration from event dates, Moscow time and no live refresh follows changed event dates and handles coincident milestones without division by zero",
+      "status": "passed",
+      "duration_ms": 85.40029200000026,
+      "id": "QA-T0097"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings keeps different sites and cities in separate local rings",
+      "status": "passed",
+      "duration_ms": 12.716666999999688,
+      "id": "QA-T0098"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings allows intercity participants to omit their sites",
+      "status": "passed",
+      "duration_ms": 2.656333999999788,
+      "id": "QA-T0099"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings rejects local members without a site under the single policy",
+      "status": "passed",
+      "duration_ms": 1.4852500000001783,
+      "id": "QA-T0100"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings rejects local members without a site under the tracks policy",
+      "status": "passed",
+      "duration_ms": 0.4691250000000764,
+      "id": "QA-T0101"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings still requires at least three participants on a local site",
+      "status": "passed",
+      "duration_ms": 0.4060420000000704,
+      "id": "QA-T0102"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings forms a single cycle without reciprocal pairs",
+      "status": "passed",
+      "duration_ms": 368.4098759999997,
+      "id": "QA-T0103"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings keeps local site rings separate from the intercity ring",
+      "status": "passed",
+      "duration_ms": 4.799790999999914,
+      "id": "QA-T0104"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings rejects local groups of 1 or 2 instead of relaxing the track",
+      "status": "passed",
+      "duration_ms": 1.066957999999886,
+      "id": "QA-T0105"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings does not merge distinct shifts",
+      "status": "passed",
+      "duration_ms": 4.310042000000067,
+      "id": "QA-T0106"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings rejects impossible intercity distributions",
+      "status": "passed",
+      "duration_ms": 2.5245420000001104,
+      "id": "QA-T0107"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings retains hard exclusions when history must be relaxed",
+      "status": "passed",
+      "duration_ms": 2.7507909999999356,
+      "id": "QA-T0108"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings normalizes case, whitespace and ё in group names",
+      "status": "passed",
+      "duration_ms": 0.5317500000001019,
+      "id": "QA-T0109"
+    },
+    {
+      "file": "lib/garland-draw.test.ts",
+      "name": "garland rings handles 1500 intercity participants without self or reciprocal assignments",
+      "status": "passed",
+      "duration_ms": 3897.3410440000002,
+      "id": "QA-T0110"
+    },
+    {
+      "file": "lib/garland-motion.test.tsx",
+      "name": "garland playback enabled on initial page load starts enabled in the initial markup without an activation effect",
+      "status": "passed",
+      "duration_ms": 25.138832999999977,
+      "id": "QA-T0111"
+    },
+    {
+      "file": "lib/garland-motion.test.tsx",
+      "name": "garland playback enabled on initial page load does not gate playback on visibility observers or system preferences",
+      "status": "passed",
+      "duration_ms": 6.1666250000000105,
+      "id": "QA-T0112"
+    },
+    {
+      "file": "lib/garland-motion.test.tsx",
+      "name": "garland playback enabled on initial page load pauses only by an explicit click and resumes from the same control",
+      "status": "passed",
+      "duration_ms": 7.381750000000011,
+      "id": "QA-T0113"
+    },
+    {
+      "file": "lib/garland-overview.test.tsx",
+      "name": "clean map without demo labels or visible city cards retains factual data for screen readers, without the visible card grid",
+      "status": "passed",
+      "duration_ms": 104.68483300000003,
+      "id": "QA-T0114"
+    },
+    {
+      "file": "lib/garland-overview.test.tsx",
+      "name": "clean map without demo labels or visible city cards shows eight unfilled geographic anchors when nobody is registered, without claiming gifts",
+      "status": "passed",
+      "duration_ms": 26.306249999999864,
+      "id": "QA-T0115"
+    },
+    {
+      "file": "lib/garland-overview.test.tsx",
+      "name": "clean map without demo labels or visible city cards threads a new participant city into the same closed garland on the next page render",
+      "status": "passed",
+      "duration_ms": 19.62425099999996,
+      "id": "QA-T0116"
+    },
+    {
+      "file": "lib/garland-overview.test.tsx",
+      "name": "clean map without demo labels or visible city cards keeps actual cities and sites even with fewer than eight people",
+      "status": "passed",
+      "duration_ms": 17.942542000000003,
+      "id": "QA-T0117"
+    },
+    {
+      "file": "lib/garland-snapshot.test.ts",
+      "name": "shared public map snapshot selects only opted-in registration locations and never returns private fields",
+      "status": "passed",
+      "duration_ms": 16.084040999999843,
+      "id": "QA-T0118"
+    },
+    {
+      "file": "lib/garland-snapshot.test.ts",
+      "name": "shared public map snapshot uses fixed assignments after the draw, not later registrations",
+      "status": "passed",
+      "duration_ms": 21.765040999999883,
+      "id": "QA-T0119"
+    },
+    {
+      "file": "lib/garland-snapshot.test.ts",
+      "name": "shared public map snapshot does not disguise a database failure as an empty map",
+      "status": "passed",
+      "duration_ms": 2.8219159999998737,
+      "id": "QA-T0120"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing accepts full recipient names with an optional patronymic: Иванова Анна",
+      "status": "passed",
+      "duration_ms": 9.030209000000013,
+      "id": "QA-T0121"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing accepts full recipient names with an optional patronymic: Иванова Анна Сергеевна",
+      "status": "passed",
+      "duration_ms": 0.6995839999999589,
+      "id": "QA-T0122"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing accepts full recipient names with an optional patronymic: Ли Бо",
+      "status": "passed",
+      "duration_ms": 0.3866669999997612,
+      "id": "QA-T0123"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing accepts full recipient names with an optional patronymic: Anne-Marie Smith",
+      "status": "passed",
+      "duration_ms": 0.8387079999997695,
+      "id": "QA-T0124"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a recipient's full name: ",
+      "status": "passed",
+      "duration_ms": 28.782416999999896,
+      "id": "QA-T0125"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a recipient's full name:    ",
+      "status": "passed",
+      "duration_ms": 0.8088329999995949,
+      "id": "QA-T0126"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a recipient's full name: local_user",
+      "status": "passed",
+      "duration_ms": 0.7074589999997443,
+      "id": "QA-T0127"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a recipient's full name: Анна",
+      "status": "passed",
+      "duration_ms": 0.2960830000001806,
+      "id": "QA-T0128"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a recipient's full name: undefined",
+      "status": "passed",
+      "duration_ms": 2.4781659999998737,
+      "id": "QA-T0129"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing normalizes spacing without inventing a patronymic",
+      "status": "passed",
+      "duration_ms": 4.04883400000017,
+      "id": "QA-T0130"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing allows declining participation without providing a new full name",
+      "status": "passed",
+      "duration_ms": 0.5474159999998847,
+      "id": "QA-T0131"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a site for a local profile: ",
+      "status": "passed",
+      "duration_ms": 6.153249999999844,
+      "id": "QA-T0132"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a site for a local profile:    ",
+      "status": "passed",
+      "duration_ms": 0.6941249999999854,
+      "id": "QA-T0133"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a site for a local profile: undefined",
+      "status": "passed",
+      "duration_ms": 1.2286250000001928,
+      "id": "QA-T0134"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing allows an empty site for intercity profiles while retaining other requirements",
+      "status": "passed",
+      "duration_ms": 0.5699169999998048,
+      "id": "QA-T0135"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing treats an omitted site as empty without dropping the other requirements",
+      "status": "passed",
+      "duration_ms": 0.6910840000000462,
+      "id": "QA-T0136"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing imports an intercity profile with no site and rejects a local one",
+      "status": "passed",
+      "duration_ms": 5.184125000000222,
+      "id": "QA-T0137"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing requires a pickup point for intercity but not local",
+      "status": "passed",
+      "duration_ms": 0.4475410000000011,
+      "id": "QA-T0138"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing parses an eight-column coordinator list",
+      "status": "passed",
+      "duration_ms": 3.3631659999996373,
+      "id": "QA-T0139"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing rejects malformed lines instead of shifting columns",
+      "status": "passed",
+      "duration_ms": 0.3990830000002461,
+      "id": "QA-T0140"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing validates ordering of proposed dates",
+      "status": "passed",
+      "duration_ms": 5.788250000000062,
+      "id": "QA-T0141"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "participation and importing normalizes place identities",
+      "status": "passed",
+      "duration_ms": 0.46908299999995506,
+      "id": "QA-T0142"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "gift authorization never permits unrelated users to mutate gift states",
+      "status": "passed",
+      "duration_ms": 0.4613329999997404,
+      "id": "QA-T0143"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "gift authorization does not let a giver light their recipient's bulb",
+      "status": "passed",
+      "duration_ms": 0.23591699999997218,
+      "id": "QA-T0144"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "gift authorization scopes coordinator rights separately to sender and recipient sites",
+      "status": "passed",
+      "duration_ms": 0.9264159999997901,
+      "id": "QA-T0145"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "gift authorization does not let a volunteer assign themselves",
+      "status": "passed",
+      "duration_ms": 0.17479199999979755,
+      "id": "QA-T0146"
+    },
+    {
+      "file": "lib/girlyanda-rules.test.ts",
+      "name": "public aggregate counts received gifts only and emits no identity or delivery fields",
+      "status": "passed",
+      "duration_ms": 0.918250000000171,
+      "id": "QA-T0147"
+    },
+    {
+      "file": "lib/health-routes.test.ts",
+      "name": "non-sensitive deployment health probes keeps liveness independent of the database",
+      "status": "passed",
+      "duration_ms": 50.90645800000004,
+      "id": "QA-T0148"
+    },
+    {
+      "file": "lib/health-routes.test.ts",
+      "name": "non-sensitive deployment health probes uses a bounded database query for readiness",
+      "status": "passed",
+      "duration_ms": 2.710708000000068,
+      "id": "QA-T0149"
+    },
+    {
+      "file": "lib/health-routes.test.ts",
+      "name": "non-sensitive deployment health probes returns 503 without leaking credentials or errors",
+      "status": "passed",
+      "duration_ms": 1.137625000000071,
+      "id": "QA-T0150"
+    },
+    {
+      "file": "lib/holiday-portals.test.tsx",
+      "name": "cabinet theme reaches all portal surfaces without global body changes themes 'dialog-content' and preserves passed content and attributes",
+      "status": "passed",
+      "duration_ms": 34.04170799999997,
+      "id": "QA-T0151"
+    },
+    {
+      "file": "lib/holiday-portals.test.tsx",
+      "name": "cabinet theme reaches all portal surfaces without global body changes themes 'popover-content' and preserves passed content and attributes",
+      "status": "passed",
+      "duration_ms": 3.6705840000000762,
+      "id": "QA-T0152"
+    },
+    {
+      "file": "lib/holiday-portals.test.tsx",
+      "name": "cabinet theme reaches all portal surfaces without global body changes themes 'select-content' and preserves passed content and attributes",
+      "status": "passed",
+      "duration_ms": 1.3714159999999538,
+      "id": "QA-T0153"
+    },
+    {
+      "file": "lib/holiday-portals.test.tsx",
+      "name": "cabinet theme reaches all portal surfaces without global body changes leaves UI outside the cabinet theme unchanged",
+      "status": "passed",
+      "duration_ms": 2.729332999999997,
+      "id": "QA-T0154"
+    },
+    {
+      "file": "lib/holiday-portals.test.tsx",
+      "name": "cabinet theme reaches all portal surfaces without global body changes leaves UI outside the cabinet theme unchanged",
+      "status": "passed",
+      "duration_ms": 1.154333999999949,
+      "id": "QA-T0155"
+    },
+    {
+      "file": "lib/holiday-portals.test.tsx",
+      "name": "cabinet theme reaches all portal surfaces without global body changes leaves UI outside the cabinet theme unchanged",
+      "status": "passed",
+      "duration_ms": 0.7680000000000291,
+      "id": "QA-T0156"
+    },
+    {
+      "file": "lib/holiday-shell.test.tsx",
+      "name": "shared light cabinets and authentication shell renders one static decoration, a working skip target and a semantic main",
+      "status": "passed",
+      "duration_ms": 89.79058400000008,
+      "id": "QA-T0157"
+    },
+    {
+      "file": "lib/holiday-shell.test.tsx",
+      "name": "shared light cabinets and authentication shell does not activate the cabinet theme outside its provider",
+      "status": "passed",
+      "duration_ms": 2.2174999999999727,
+      "id": "QA-T0158"
+    },
+    {
+      "file": "lib/holiday-shell.test.tsx",
+      "name": "shared light cabinets and authentication shell removes the corporate label but keeps public brand and navigation",
+      "status": "passed",
+      "duration_ms": 38.134624999999915,
+      "id": "QA-T0159"
+    },
+    {
+      "file": "lib/holiday-shell.test.tsx",
+      "name": "shared light cabinets and authentication shell keeps light theme rules local, with touch-sized fields and wrapping navigation",
+      "status": "passed",
+      "duration_ms": 5.852624999999989,
+      "id": "QA-T0160"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering uses land geometry with the correct spherical winding, not an inverted ocean fill",
+      "status": "passed",
+      "duration_ms": 34.14350000000013,
+      "id": "QA-T0161"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering renders local coastlines and real configured coordinates without external resources",
+      "status": "passed",
+      "duration_ms": 129.65779199999997,
+      "id": "QA-T0162"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering retains unlocated cities in counts and the accessible list without inventing markers",
+      "status": "passed",
+      "duration_ms": 7.265374999999949,
+      "id": "QA-T0163"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering shows confirmed registrations without suggesting gifts were received or pairs drawn",
+      "status": "passed",
+      "duration_ms": 30.412582999999813,
+      "id": "QA-T0164"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering omits the removed legend and empty-state copy",
+      "status": "passed",
+      "duration_ms": 7.85695799999985,
+      "id": "QA-T0165"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering omits the top counter and explanatory copy for 'registration'",
+      "status": "passed",
+      "duration_ms": 8.512582999999722,
+      "id": "QA-T0166"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering omits the top counter and explanatory copy for 'gifts'",
+      "status": "passed",
+      "duration_ms": 4.336709000000155,
+      "id": "QA-T0167"
+    },
+    {
+      "file": "lib/map-render.test.tsx",
+      "name": "offline map rendering labels city markers directly without numbered city headings",
+      "status": "passed",
+      "duration_ms": 9.207792000000154,
+      "id": "QA-T0168"
+    },
+    {
+      "file": "lib/phone-field-render.test.tsx",
+      "name": "rendered Russian phone field renders a disabled Russia selector, a labeled input and the fixed calling code",
+      "status": "passed",
+      "duration_ms": 93.09979199999998,
+      "id": "QA-T0169"
+    },
+    {
+      "file": "lib/phone-field-render.test.tsx",
+      "name": "rendered Russian phone field keeps separate flag and editable phone controls in the signup theme: ",
+      "status": "passed",
+      "duration_ms": 18.514541999999892,
+      "id": "QA-T0170"
+    },
+    {
+      "file": "lib/phone-field-render.test.tsx",
+      "name": "rendered Russian phone field keeps separate flag and editable phone controls in the signup theme: 79991234567",
+      "status": "passed",
+      "duration_ms": 24.174708999999893,
+      "id": "QA-T0171"
+    },
+    {
+      "file": "lib/phone-field-render.test.tsx",
+      "name": "rendered Russian phone field reserves 52px for the flag and lets the phone input fill the remainder",
+      "status": "passed",
+      "duration_ms": 0.8801250000001346,
+      "id": "QA-T0172"
+    },
+    {
+      "file": "lib/phone-input.test.tsx",
+      "name": "Russian-only phone field fixes the country and dial code without offering international input",
+      "status": "passed",
+      "duration_ms": 61.997540999999956,
+      "id": "QA-T0173"
+    },
+    {
+      "file": "lib/phone-input.test.tsx",
+      "name": "Russian-only phone field normalizes pasted national numbers instead of appending the trunk prefix to +7",
+      "status": "passed",
+      "duration_ms": 8.677625000000035,
+      "id": "QA-T0174"
+    },
+    {
+      "file": "lib/phone-input.test.tsx",
+      "name": "Russian-only phone field retains the digits-only storage contract when entering or clearing a number",
+      "status": "passed",
+      "duration_ms": 2.8913330000000315,
+      "id": "QA-T0175"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'own phone' rejects +1 202 555 0100 before any contact write",
+      "status": "passed",
+      "duration_ms": 19.182166999999936,
+      "id": "QA-T0176"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'own phone' rejects +7 701 555 0100 before any contact write",
+      "status": "passed",
+      "duration_ms": 7.877208000000337,
+      "id": "QA-T0177"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'own phone' rejects +7 999 123 before any contact write",
+      "status": "passed",
+      "duration_ms": 3.958458000000064,
+      "id": "QA-T0178"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'own phone' rejects abc before any contact write",
+      "status": "passed",
+      "duration_ms": 1.5375420000000304,
+      "id": "QA-T0179"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'own phone' stores a normalized Russian number",
+      "status": "passed",
+      "duration_ms": 21.41558299999997,
+      "id": "QA-T0180"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'own phone' still allows clearing an optional contact",
+      "status": "passed",
+      "duration_ms": 2.16137499999968,
+      "id": "QA-T0181"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'new participant' rejects +1 202 555 0100 before any contact write",
+      "status": "passed",
+      "duration_ms": 3.4036660000001575,
+      "id": "QA-T0182"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'new participant' rejects +7 701 555 0100 before any contact write",
+      "status": "passed",
+      "duration_ms": 1.8294169999999212,
+      "id": "QA-T0183"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'new participant' rejects +7 999 123 before any contact write",
+      "status": "passed",
+      "duration_ms": 3.7271670000000086,
+      "id": "QA-T0184"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'new participant' rejects abc before any contact write",
+      "status": "passed",
+      "duration_ms": 1.5015830000002097,
+      "id": "QA-T0185"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'new participant' stores a normalized Russian number",
+      "status": "passed",
+      "duration_ms": 1.7905409999998483,
+      "id": "QA-T0186"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'new participant' still allows clearing an optional contact",
+      "status": "passed",
+      "duration_ms": 1.125250000000051,
+      "id": "QA-T0187"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'participant update' rejects +1 202 555 0100 before any contact write",
+      "status": "passed",
+      "duration_ms": 3.1637919999998303,
+      "id": "QA-T0188"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'participant update' rejects +7 701 555 0100 before any contact write",
+      "status": "passed",
+      "duration_ms": 2.1174999999998363,
+      "id": "QA-T0189"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'participant update' rejects +7 999 123 before any contact write",
+      "status": "passed",
+      "duration_ms": 1.339792000000216,
+      "id": "QA-T0190"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'participant update' rejects abc before any contact write",
+      "status": "passed",
+      "duration_ms": 0.7419589999999516,
+      "id": "QA-T0191"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'participant update' stores a normalized Russian number",
+      "status": "passed",
+      "duration_ms": 2.6445409999996627,
+      "id": "QA-T0192"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "Russian-only contacts: 'participant update' still allows clearing an optional contact",
+      "status": "passed",
+      "duration_ms": 1.0214590000000499,
+      "id": "QA-T0193"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "does not modify a stored phone when the organizer only renames a participant",
+      "status": "passed",
+      "duration_ms": 1.6797919999999067,
+      "id": "QA-T0194"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "keeps organizer routes protected",
+      "status": "passed",
+      "duration_ms": 1.2112919999999576,
+      "id": "QA-T0195"
+    },
+    {
+      "file": "lib/phone-routes.test.ts",
+      "name": "does not allow an anonymous profile update",
+      "status": "passed",
+      "duration_ms": 1.493750000000091,
+      "id": "QA-T0196"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation normalizes +7 (999) 123-45-67 to international digits",
+      "status": "passed",
+      "duration_ms": 13.935499999999934,
+      "id": "QA-T0197"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation normalizes 79991234567 to international digits",
+      "status": "passed",
+      "duration_ms": 1.1031249999998636,
+      "id": "QA-T0198"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation normalizes 8 (999) 123-45-67 to international digits",
+      "status": "passed",
+      "duration_ms": 1.2135420000001886,
+      "id": "QA-T0199"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation normalizes 9991234567 to international digits",
+      "status": "passed",
+      "duration_ms": 0.8527090000000044,
+      "id": "QA-T0200"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation normalizes  +7 (495) 123-45-67  to international digits",
+      "status": "passed",
+      "duration_ms": 3.515083000000004,
+      "id": "QA-T0201"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation normalizes +7 978 812 74 02 to international digits",
+      "status": "passed",
+      "duration_ms": 0.7797080000000278,
+      "id": "QA-T0202"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: ",
+      "status": "passed",
+      "duration_ms": 0.9448749999999109,
+      "id": "QA-T0203"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: + ()",
+      "status": "passed",
+      "duration_ms": 0.8020420000000286,
+      "id": "QA-T0204"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +1 202 555 0100",
+      "status": "passed",
+      "duration_ms": 10.897167000000081,
+      "id": "QA-T0205"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +375 29 1234567",
+      "status": "passed",
+      "duration_ms": 0.4707909999999629,
+      "id": "QA-T0206"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 701 555 0100",
+      "status": "passed",
+      "duration_ms": 0.8352500000000873,
+      "id": "QA-T0207"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: 8 701 555 0100",
+      "status": "passed",
+      "duration_ms": 0.48766599999999016,
+      "id": "QA-T0208"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 7172 580659",
+      "status": "passed",
+      "duration_ms": 0.6078749999999218,
+      "id": "QA-T0209"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 999 123",
+      "status": "passed",
+      "duration_ms": 0.21149999999988722,
+      "id": "QA-T0210"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 999 123456789",
+      "status": "passed",
+      "duration_ms": 0.17337500000007822,
+      "id": "QA-T0211"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 000 000 0000",
+      "status": "passed",
+      "duration_ms": 0.5581250000000182,
+      "id": "QA-T0212"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 123 4567890",
+      "status": "passed",
+      "duration_ms": 0.29829099999983555,
+      "id": "QA-T0213"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +7 999 1234567 доб. 5",
+      "status": "passed",
+      "duration_ms": 0.23666700000012497,
+      "id": "QA-T0214"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: call +7 999 1234567",
+      "status": "passed",
+      "duration_ms": 0.16162499999995816,
+      "id": "QA-T0215"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation rejects a foreign, incomplete or malformed contact: +8 999 1234567",
+      "status": "passed",
+      "duration_ms": 0.2037920000000213,
+      "id": "QA-T0216"
+    },
+    {
+      "file": "lib/phone.test.ts",
+      "name": "Russian contact phone validation keeps optional clearing and omitted updates compatible",
+      "status": "passed",
+      "duration_ms": 0.6447080000000369,
+      "id": "QA-T0217"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration provides a non-empty, uniquely valued local catalogue, not only base map cities",
+      "status": "passed",
+      "duration_ms": 13.651166000000558,
+      "id": "QA-T0218"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration does not accept an arbitrary city: ",
+      "status": "passed",
+      "duration_ms": 10.663292000000183,
+      "id": "QA-T0219"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration does not accept an arbitrary city: Мирный",
+      "status": "passed",
+      "duration_ms": 2.732875000000604,
+      "id": "QA-T0220"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration does not accept an arbitrary city: Лондон",
+      "status": "passed",
+      "duration_ms": 0.41912500000034925,
+      "id": "QA-T0221"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration does not accept an arbitrary city: Астана",
+      "status": "passed",
+      "duration_ms": 3.7636249999995925,
+      "id": "QA-T0222"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration does not accept an arbitrary city: Новый вымышленный город",
+      "status": "passed",
+      "duration_ms": 1.3359159999999974,
+      "id": "QA-T0223"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration normalizes a valid choice without accepting aliases of ambiguous cities",
+      "status": "passed",
+      "duration_ms": 1.1559580000002825,
+      "id": "QA-T0224"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration distinguishes identical city names by region and resolves each map anchor offline",
+      "status": "passed",
+      "duration_ms": 7.307332999999744,
+      "id": "QA-T0225"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration returns copies rather than mutable shared city records",
+      "status": "passed",
+      "duration_ms": 13.101458999999522,
+      "id": "QA-T0226"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration renders a required custom combobox without a preset city",
+      "status": "passed",
+      "duration_ms": 116.4813750000003,
+      "id": "QA-T0227"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration shows the selected value and respects form busy state",
+      "status": "passed",
+      "duration_ms": 72.86354200000005,
+      "id": "QA-T0228"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration searches city names regardless of case, whitespace or the е/ё spelling",
+      "status": "passed",
+      "duration_ms": 5.1884170000003,
+      "id": "QA-T0229"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration searches regions and city names together in either order",
+      "status": "passed",
+      "duration_ms": 4.418459000000439,
+      "id": "QA-T0230"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration finds homonymous cities with their regions and returns no fabricated results",
+      "status": "passed",
+      "duration_ms": 11.937290999999277,
+      "id": "QA-T0231"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration preserves a previously saved city even when it is absent from the catalogue",
+      "status": "passed",
+      "duration_ms": 31.105709000000388,
+      "id": "QA-T0232"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration uses the same city selector in the participation form: locked=false",
+      "status": "passed",
+      "duration_ms": 34.540750000000116,
+      "id": "QA-T0233"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration uses the same city selector in the participation form: locked=true",
+      "status": "passed",
+      "duration_ms": 46.632291000000805,
+      "id": "QA-T0234"
+    },
+    {
+      "file": "lib/registration-cities.test.tsx",
+      "name": "offline Russian city selection at registration leaves the site optional for the intercity track",
+      "status": "passed",
+      "duration_ms": 189.18729199999962,
+      "id": "QA-T0235"
+    },
+    {
+      "file": "lib/retired-worker.test.ts",
+      "name": "retired notification worker unsubscribes and unregisters without installing notification handlers",
+      "status": "passed",
+      "duration_ms": 40.05683299999998,
+      "id": "QA-T0236"
+    },
+    {
+      "file": "lib/retired-worker.test.ts",
+      "name": "retired notification worker unregisters even if removing a subscription fails",
+      "status": "passed",
+      "duration_ms": 28.216542000000004,
+      "id": "QA-T0237"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame bundles only the dated RUS feature with correct spherical winding",
+      "status": "passed",
+      "duration_ms": 13.54241600000023,
+      "id": "QA-T0238"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame fits the entire country with one scale and no planar rotation or clipping",
+      "status": "passed",
+      "duration_ms": 50.694000000000415,
+      "id": "QA-T0239"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame keeps all eight base anchors on the map in the same geographic frame",
+      "status": "passed",
+      "duration_ms": 104.96383400000013,
+      "id": "QA-T0240"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame retains the enclave and far eastern/coastal anchors: {\"longitude\":20.51,\"latitude\":54.71}",
+      "status": "passed",
+      "duration_ms": 6.443500000000313,
+      "id": "QA-T0241"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame retains the enclave and far eastern/coastal anchors: {\"longitude\":170,\"latitude\":66.5}",
+      "status": "passed",
+      "duration_ms": 2.161583000000064,
+      "id": "QA-T0242"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame retains the enclave and far eastern/coastal anchors: {\"longitude\":177.5,\"latitude\":64.73}",
+      "status": "passed",
+      "duration_ms": 75.28295900000012,
+      "id": "QA-T0243"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not split Russia or nearby city anchors at the antimeridian",
+      "status": "passed",
+      "duration_ms": 14.64049999999952,
+      "id": "QA-T0244"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not manufacture a marker for invalid/outside coordinates: null",
+      "status": "passed",
+      "duration_ms": 0.3134169999993901,
+      "id": "QA-T0245"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not manufacture a marker for invalid/outside coordinates: {\"longitude\":null,\"latitude\":55}",
+      "status": "passed",
+      "duration_ms": 0.8525420000005397,
+      "id": "QA-T0246"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not manufacture a marker for invalid/outside coordinates: {\"longitude\":999,\"latitude\":55}",
+      "status": "passed",
+      "duration_ms": 0.1477500000000873,
+      "id": "QA-T0247"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not manufacture a marker for invalid/outside coordinates: {\"longitude\":40,\"latitude\":91}",
+      "status": "passed",
+      "duration_ms": 0.30633300000044983,
+      "id": "QA-T0248"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not manufacture a marker for invalid/outside coordinates: {\"longitude\":-0.12,\"latitude\":51.5}",
+      "status": "passed",
+      "duration_ms": 156.18183399999998,
+      "id": "QA-T0249"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame does not manufacture a marker for invalid/outside coordinates: {\"longitude\":71.45,\"latitude\":51.16}",
+      "status": "passed",
+      "duration_ms": 75.86620800000037,
+      "id": "QA-T0250"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "offline Russia-only cartographic frame preserves local shapes rather than applying different horizontal and vertical scales",
+      "status": "passed",
+      "duration_ms": 38.56512500000008,
+      "id": "QA-T0251"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer keeps exactly four sourced regions without duplicating Crimea",
+      "status": "passed",
+      "duration_ms": 32.99495900000056,
+      "id": "QA-T0252"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer projects a participant in the added region: {\"longitude\":37.803,\"latitude\":48.016}",
+      "status": "passed",
+      "duration_ms": 46.20258300000023,
+      "id": "QA-T0253"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer projects a participant in the added region: {\"longitude\":39.308,\"latitude\":48.574}",
+      "status": "passed",
+      "duration_ms": 50.060833999999886,
+      "id": "QA-T0254"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer projects a participant in the added region: {\"longitude\":35.14,\"latitude\":47.839}",
+      "status": "passed",
+      "duration_ms": 53.52166600000055,
+      "id": "QA-T0255"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer projects a participant in the added region: {\"longitude\":32.618,\"latitude\":46.635}",
+      "status": "passed",
+      "duration_ms": 101.03650000000016,
+      "id": "QA-T0256"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer does not accidentally add other regions: {\"longitude\":30.523,\"latitude\":50.45}",
+      "status": "passed",
+      "duration_ms": 48.11737500000072,
+      "id": "QA-T0257"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer does not accidentally add other regions: {\"longitude\":24.029,\"latitude\":49.84}",
+      "status": "passed",
+      "duration_ms": 76.85158300000057,
+      "id": "QA-T0258"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer does not accidentally add other regions: {\"longitude\":30.733,\"latitude\":46.483}",
+      "status": "passed",
+      "duration_ms": 27.972874999999476,
+      "id": "QA-T0259"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer does not accidentally add other regions: {\"longitude\":36.235,\"latitude\":49.99}",
+      "status": "passed",
+      "duration_ms": 46.56974999999966,
+      "id": "QA-T0260"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "additional administrative region layer renders four finite paths in the shared frame without adding fictitious city markers",
+      "status": "passed",
+      "duration_ms": 66.45895800000017,
+      "id": "QA-T0261"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments closes a deterministic loop through every distinct city without mutating inputs",
+      "status": "passed",
+      "duration_ms": 15.23633300000074,
+      "id": "QA-T0262"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments does not invent loops with fewer than three distinct non-collinear points: []",
+      "status": "passed",
+      "duration_ms": 0.24504199999955745,
+      "id": "QA-T0263"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments does not invent loops with fewer than three distinct non-collinear points: [ [ 1, 1 ] ]",
+      "status": "passed",
+      "duration_ms": 0.17550000000028376,
+      "id": "QA-T0264"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments does not invent loops with fewer than three distinct non-collinear points: [ [ 1, 1 ], [ 2, 2 ] ]",
+      "status": "passed",
+      "duration_ms": 0.19504200000028504,
+      "id": "QA-T0265"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments does not invent loops with fewer than three distinct non-collinear points: [ [ 1, 1 ], [ 1, 1 ], [ 1, 1 ] ]",
+      "status": "passed",
+      "duration_ms": 0.1880410000003394,
+      "id": "QA-T0266"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments does not invent loops with fewer than three distinct non-collinear points: [ [ 1, 1 ], [ 2, 2 ], [ 3, 3 ] ]",
+      "status": "passed",
+      "duration_ms": 0.18712500000037835,
+      "id": "QA-T0267"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments deduplicates only line vertices, not city counts or site lists",
+      "status": "passed",
+      "duration_ms": 0.3951250000000073,
+      "id": "QA-T0268"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments passes through every city and joins cubic segments smoothly, including closure",
+      "status": "passed",
+      "duration_ms": 18.90858399999979,
+      "id": "QA-T0269"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments renders four fixed bulb layers and factual city statuses without a visible caption",
+      "status": "passed",
+      "duration_ms": 26.36987499999941,
+      "id": "QA-T0270"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments uses visibly rounded arcs rather than straight chords for a circular ring",
+      "status": "passed",
+      "duration_ms": 0.689499999999498,
+      "id": "QA-T0271"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments keeps outside/unknown cities in the accessible list without secret or invented coordinates",
+      "status": "passed",
+      "duration_ms": 39.81095800000003,
+      "id": "QA-T0272"
+    },
+    {
+      "file": "lib/russia-map.test.tsx",
+      "name": "schematic closed city garland, not gift assignments declutters colliding labels without changing the source city list",
+      "status": "passed",
+      "duration_ms": 1.0320419999998194,
+      "id": "QA-T0273"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates locates Тюмень locally",
+      "status": "passed",
+      "duration_ms": 2.4512919999999667,
+      "id": "QA-T0274"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates locates Казань locally",
+      "status": "passed",
+      "duration_ms": 0.607584000000088,
+      "id": "QA-T0275"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates locates Омск locally",
+      "status": "passed",
+      "duration_ms": 0.3946250000001328,
+      "id": "QA-T0276"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates locates Санкт-Петербург locally",
+      "status": "passed",
+      "duration_ms": 0.36429199999997763,
+      "id": "QA-T0277"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates locates Уфа locally",
+      "status": "passed",
+      "duration_ms": 0.30062500000008185,
+      "id": "QA-T0278"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates normalizes case, spaces, city prefixes and ё without changing stored data",
+      "status": "passed",
+      "duration_ms": 2.8064160000001266,
+      "id": "QA-T0279"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates does not guess unknown or ambiguous name ",
+      "status": "passed",
+      "duration_ms": 0.5215840000000753,
+      "id": "QA-T0280"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates does not guess unknown or ambiguous name Неизвестный город",
+      "status": "passed",
+      "duration_ms": 0.20299999999997453,
+      "id": "QA-T0281"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates does not guess unknown or ambiguous name Лондон",
+      "status": "passed",
+      "duration_ms": 1.645917000000054,
+      "id": "QA-T0282"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates does not guess unknown or ambiguous name Москва<script>",
+      "status": "passed",
+      "duration_ms": 0.39525000000003274,
+      "id": "QA-T0283"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates does not guess unknown or ambiguous name Мирный",
+      "status": "passed",
+      "duration_ms": 0.3515830000001188,
+      "id": "QA-T0284"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates bundles finite coordinates, a source checksum and reusable attribution",
+      "status": "passed",
+      "duration_ms": 2.1157090000001517,
+      "id": "QA-T0285"
+    },
+    {
+      "file": "lib/russian-cities.test.ts",
+      "name": "offline city lookup without guessed or external coordinates does not share mutable coordinates between requests",
+      "status": "passed",
+      "duration_ms": 0.4971660000001066,
+      "id": "QA-T0286"
+    },
+    {
+      "file": "lib/site-icon.test.tsx",
+      "name": "bundled generated site icon ships real local PNG files at all declared sizes",
+      "status": "passed",
+      "duration_ms": 68.70366599999988,
+      "id": "QA-T0287"
+    },
+    {
+      "file": "lib/site-icon.test.tsx",
+      "name": "bundled generated site icon uses local browser and Apple icons regardless of legacy saved URLs",
+      "status": "passed",
+      "duration_ms": 3.9437920000000304,
+      "id": "QA-T0288"
+    },
+    {
+      "file": "lib/site-icon.test.tsx",
+      "name": "bundled generated site icon uses the same local artwork for installable app icons without unsafe maskable cropping",
+      "status": "passed",
+      "duration_ms": 2.45116599999983,
+      "id": "QA-T0289"
+    },
+    {
+      "file": "lib/site-icon.test.tsx",
+      "name": "bundled generated site icon keeps the title and bundled icon without URL fields or a remote banner preview",
+      "status": "passed",
+      "duration_ms": 44.851249999999936,
+      "id": "QA-T0290"
+    },
+    {
+      "file": "lib/work-sites.test.tsx",
+      "name": "city-scoped site search and selection searches without case, whitespace or ё/е differences, within the selected city",
+      "status": "passed",
+      "duration_ms": 31.321958999999993,
+      "id": "QA-T0291"
+    },
+    {
+      "file": "lib/work-sites.test.tsx",
+      "name": "city-scoped site search and selection renders a named searchable field with required=true",
+      "status": "passed",
+      "duration_ms": 35.95383300000003,
+      "id": "QA-T0292"
+    },
+    {
+      "file": "lib/work-sites.test.tsx",
+      "name": "city-scoped site search and selection renders a named searchable field with required=false",
+      "status": "passed",
+      "duration_ms": 5.543415999999979,
+      "id": "QA-T0293"
+    },
+    {
+      "file": "lib/work-sites.test.tsx",
+      "name": "city-scoped site search and selection disables the field until a city is selected and when locked",
+      "status": "passed",
+      "duration_ms": 98.08920899999998,
+      "id": "QA-T0294"
+    },
+    {
+      "file": "lib/work-sites.test.tsx",
+      "name": "city-scoped site search and selection preserves a newly entered name until the profile is saved",
+      "status": "passed",
+      "duration_ms": 12.051541999999927,
+      "id": "QA-T0295"
+    },
+    {
+      "file": "lib/work-sites.test.tsx",
+      "name": "city-scoped site search and selection offers organizer rename and merge controls",
+      "status": "passed",
+      "duration_ms": 13.650249999999915,
+      "id": "QA-T0296"
+    },
+    {
+      "file": "app/admin/page.test.tsx",
+      "name": "light festive organizer page renders one quiet garland, the existing panel and account navigation",
+      "status": "passed",
+      "duration_ms": 42.974334,
+      "id": "QA-T0297"
+    },
+    {
+      "file": "app/admin/page.test.tsx",
+      "name": "light festive organizer page still redirects guests before fetching private data",
+      "status": "passed",
+      "duration_ms": 2.3156249999999545,
+      "id": "QA-T0298"
+    },
+    {
+      "file": "app/admin/page.test.tsx",
+      "name": "light festive organizer page still redirects non-organizers before fetching private data",
+      "status": "passed",
+      "duration_ms": 0.5403340000000298,
+      "id": "QA-T0299"
+    },
+    {
+      "file": "app/dashboard/page.test.tsx",
+      "name": "light festive participant cabinet with unchanged access shares the organizer theme while keeping forms and private account links",
+      "status": "passed",
+      "duration_ms": 67.57645900000034,
+      "id": "QA-T0300"
+    },
+    {
+      "file": "app/dashboard/page.test.tsx",
+      "name": "light festive participant cabinet with unchanged access retains organizer and coordinator navigation for an administrator",
+      "status": "passed",
+      "duration_ms": 11.314124999999876,
+      "id": "QA-T0301"
+    },
+    {
+      "file": "app/dashboard/page.test.tsx",
+      "name": "light festive participant cabinet with unchanged access redirects unauthenticated visitors before fetching private data",
+      "status": "passed",
+      "duration_ms": 8.87133300000005,
+      "id": "QA-T0302"
+    },
+    {
+      "file": "app/dashboard/page.test.tsx",
+      "name": "light festive participant cabinet with unchanged access locks the profile after the current event draw even without a personal assignment",
+      "status": "passed",
+      "duration_ms": 7.512249999999767,
+      "id": "QA-T0303"
+    },
+    {
+      "file": "app/coordinator/page.test.tsx",
+      "name": "light festive coordinator cabinet with unchanged access uses the common shell and retains scoped navigation and filters",
+      "status": "passed",
+      "duration_ms": 124.41724999999997,
+      "id": "QA-T0304"
+    },
+    {
+      "file": "app/coordinator/page.test.tsx",
+      "name": "light festive coordinator cabinet with unchanged access redirects guests before fetching private data",
+      "status": "passed",
+      "duration_ms": 9.132208999999875,
+      "id": "QA-T0305"
+    },
+    {
+      "file": "app/coordinator/page.test.tsx",
+      "name": "light festive coordinator cabinet with unchanged access redirects users without coordinator rights before fetching private data",
+      "status": "passed",
+      "duration_ms": 1.051166999999623,
+      "id": "QA-T0306"
+    },
+    {
+      "file": "app/garland/page.test.tsx",
+      "name": "administrator-only personal garland page redirects guests before reading any configuration or personal data",
+      "status": "passed",
+      "duration_ms": 8.169667000000118,
+      "id": "QA-T0307"
+    },
+    {
+      "file": "app/garland/page.test.tsx",
+      "name": "administrator-only personal garland page denies the user role even when the public map is published",
+      "status": "passed",
+      "duration_ms": 1.1570839999999407,
+      "id": "QA-T0308"
+    },
+    {
+      "file": "app/garland/page.test.tsx",
+      "name": "administrator-only personal garland page denies the coordinator role even when the public map is published",
+      "status": "passed",
+      "duration_ms": 0.8844999999996617,
+      "id": "QA-T0309"
+    },
+    {
+      "file": "app/garland/page.test.tsx",
+      "name": "administrator-only personal garland page denies the null role even when the public map is published",
+      "status": "passed",
+      "duration_ms": 6.952916000000187,
+      "id": "QA-T0310"
+    },
+    {
+      "file": "app/garland/page.test.tsx",
+      "name": "administrator-only personal garland page shows personal participant details to admins: publication=true",
+      "status": "passed",
+      "duration_ms": 225.51429199999984,
+      "id": "QA-T0311"
+    },
+    {
+      "file": "app/garland/page.test.tsx",
+      "name": "administrator-only personal garland page shows personal participant details to admins: publication=false",
+      "status": "passed",
+      "duration_ms": 85.39962500000001,
+      "id": "QA-T0312"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels rejects a new request after completion before inserting a draft",
+      "status": "passed",
+      "duration_ms": 106.87033400000018,
+      "id": "QA-T0313"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels requires cancelling an existing draft before starting another draw",
+      "status": "passed",
+      "duration_ms": 18.084333999999217,
+      "id": "QA-T0314"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels requires closing registration first",
+      "status": "passed",
+      "duration_ms": 10.222125000000233,
+      "id": "QA-T0315"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels does not include accounts without opt-in profiles",
+      "status": "passed",
+      "duration_ms": 3.6450840000006792,
+      "id": "QA-T0316"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels rejects enabling deliverEmail",
+      "status": "passed",
+      "duration_ms": 23.12920800000029,
+      "id": "QA-T0317"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels rejects enabling deliverPush",
+      "status": "passed",
+      "duration_ms": 2.9516249999996944,
+      "id": "QA-T0318"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels stores disabled channels and returns no delivery claims",
+      "status": "passed",
+      "duration_ms": 9.097917000000052,
+      "id": "QA-T0319"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "retired notification channels accepts false from older clients",
+      "status": "passed",
+      "duration_ms": 9.877666000000318,
+      "id": "QA-T0320"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "self-assignment is forbidden through the draw API rejects a direct request to enable self-assignment before creating a draw",
+      "status": "passed",
+      "duration_ms": 7.930583000000297,
+      "id": "QA-T0321"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "self-assignment is forbidden through the draw API stores false when the setting is omitted",
+      "status": "passed",
+      "duration_ms": 4.642459000000599,
+      "id": "QA-T0322"
+    },
+    {
+      "file": "app/api/draw/route.test.ts",
+      "name": "self-assignment is forbidden through the draw API accepts older clients that explicitly send false",
+      "status": "passed",
+      "duration_ms": 1.5938329999999041,
+      "id": "QA-T0323"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR uses the browser origin behind a proxy and returns standalone SVG",
+      "status": "passed",
+      "duration_ms": 176.1344170000002,
+      "id": "QA-T0324"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR preserves a direct site's protocol and non-default port",
+      "status": "passed",
+      "duration_ms": 56.699416000000156,
+      "id": "QA-T0325"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: javascript:alert(1)",
+      "status": "passed",
+      "duration_ms": 8.909583000000111,
+      "id": "QA-T0326"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: data:text/html,test",
+      "status": "passed",
+      "duration_ms": 1.8237500000000182,
+      "id": "QA-T0327"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: https://name:password@santa.corp.test",
+      "status": "passed",
+      "duration_ms": 1.337624999999889,
+      "id": "QA-T0328"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: https://santa.corp.test/other",
+      "status": "passed",
+      "duration_ms": 0.9050409999999829,
+      "id": "QA-T0329"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: https://santa.corp.test?redirect=other",
+      "status": "passed",
+      "duration_ms": 0.8644590000001244,
+      "id": "QA-T0330"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: https://santa.corp.test#other",
+      "status": "passed",
+      "duration_ms": 0.6575419999999212,
+      "id": "QA-T0331"
+    },
+    {
+      "file": "app/api/registration-qr/route.test.ts",
+      "name": "local registration QR rejects a value that is not an HTTP(S) origin: not-a-url",
+      "status": "passed",
+      "duration_ms": 6.870791999999938,
+      "id": "QA-T0332"
+    },
+    {
+      "file": "app/api/settings/route.test.ts",
+      "name": "appearance settings without editable icon URLs saves text and banner settings as before",
+      "status": "passed",
+      "duration_ms": 65.65929099999994,
+      "id": "QA-T0333"
+    },
+    {
+      "file": "app/api/settings/route.test.ts",
+      "name": "appearance settings without editable icon URLs does not accept a remote icon override",
+      "status": "passed",
+      "duration_ms": 4.516957999999931,
+      "id": "QA-T0334"
+    },
+    {
+      "file": "app/api/settings/route.test.ts",
+      "name": "appearance settings without editable icon URLs still protects appearance updates with administrator permissions",
+      "status": "passed",
+      "duration_ms": 1.8448750000000018,
+      "id": "QA-T0335"
+    },
+    {
+      "file": "app/api/settings/route.test.ts",
+      "name": "appearance settings without editable icon URLs returns a validation error for malformed JSON instead of throwing",
+      "status": "passed",
+      "duration_ms": 20.004374999999982,
+      "id": "QA-T0336"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers requires the full name before creating an account",
+      "status": "passed",
+      "duration_ms": 77.83283300000039,
+      "id": "QA-T0337"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers accepts any valid personal or work email: anna@personal.example",
+      "status": "passed",
+      "duration_ms": 22.68004099999962,
+      "id": "QA-T0338"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers accepts any valid personal or work email: ivan@personal.example",
+      "status": "passed",
+      "duration_ms": 3.391833000000588,
+      "id": "QA-T0339"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers accepts any valid personal or work email: member@personal.example",
+      "status": "passed",
+      "duration_ms": 19.307457999999315,
+      "id": "QA-T0340"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers accepts any valid personal or work email: employee@work.example",
+      "status": "passed",
+      "duration_ms": 12.16491700000006,
+      "id": "QA-T0341"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers still rejects a malformed email",
+      "status": "passed",
+      "duration_ms": 11.28808300000037,
+      "id": "QA-T0342"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers registers a phone the organizer has never added",
+      "status": "passed",
+      "duration_ms": 5.548749999999927,
+      "id": "QA-T0343"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers never claims an imported participant just by a matching contact phone",
+      "status": "passed",
+      "duration_ms": 53.15270799999962,
+      "id": "QA-T0344"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers creates a new participant if the optional placeholder was already claimed",
+      "status": "passed",
+      "duration_ms": 11.985125000000153,
+      "id": "QA-T0345"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers does not create or link a participant when account creation fails",
+      "status": "passed",
+      "duration_ms": 1.672207999999955,
+      "id": "QA-T0346"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects an empty phone without creating an account",
+      "status": "passed",
+      "duration_ms": 0.9806660000003831,
+      "id": "QA-T0347"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a foreign or invalid phone before creating an account: +1 202 555 0100",
+      "status": "passed",
+      "duration_ms": 0.9292919999998048,
+      "id": "QA-T0348"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a foreign or invalid phone before creating an account: +7 701 555 0100",
+      "status": "passed",
+      "duration_ms": 2.604458999999224,
+      "id": "QA-T0349"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a foreign or invalid phone before creating an account: +7 999 123",
+      "status": "passed",
+      "duration_ms": 4.136416000000281,
+      "id": "QA-T0350"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a foreign or invalid phone before creating an account: +7 000 000 0000",
+      "status": "passed",
+      "duration_ms": 1.2118340000006356,
+      "id": "QA-T0351"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers normalizes a Russian trunk-prefix number before storage",
+      "status": "passed",
+      "duration_ms": 3.7297920000000886,
+      "id": "QA-T0352"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: undefined",
+      "status": "passed",
+      "duration_ms": 2.557832999999846,
+      "id": "QA-T0353"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: null",
+      "status": "passed",
+      "duration_ms": 1.2986659999996846,
+      "id": "QA-T0354"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: \"\"",
+      "status": "passed",
+      "duration_ms": 1.144916999999623,
+      "id": "QA-T0355"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: \"  \"",
+      "status": "passed",
+      "duration_ms": 1.3548330000003261,
+      "id": "QA-T0356"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: \"Лондон\"",
+      "status": "passed",
+      "duration_ms": 1.1411669999997684,
+      "id": "QA-T0357"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: \"Астана\"",
+      "status": "passed",
+      "duration_ms": 1.018833000000086,
+      "id": "QA-T0358"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: \"Мирный\"",
+      "status": "passed",
+      "duration_ms": 1.2590409999993426,
+      "id": "QA-T0359"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: \"<script>Москва</script>\"",
+      "status": "passed",
+      "duration_ms": 1.2224999999998545,
+      "id": "QA-T0360"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: 123",
+      "status": "passed",
+      "duration_ms": 1.2673329999997804,
+      "id": "QA-T0361"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers rejects a missing, foreign, ambiguous or forged city before account creation: {\"city\":\"Москва\"}",
+      "status": "passed",
+      "duration_ms": 14.802915999999641,
+      "id": "QA-T0362"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers stores the canonical selected city in a new, still-unconfirmed profile",
+      "status": "passed",
+      "duration_ms": 9.88720900000044,
+      "id": "QA-T0363"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers keeps equal city names in different regions distinct",
+      "status": "passed",
+      "duration_ms": 5.118499999999585,
+      "id": "QA-T0364"
+    },
+    {
+      "file": "app/api/signup/route.test.ts",
+      "name": "open registration with Russian contact numbers handles malformed JSON as a validation error",
+      "status": "passed",
+      "duration_ms": 8.039416999999958,
+      "id": "QA-T0365"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle denies personal map data to guests, members and coordinators",
+      "status": "passed",
+      "duration_ms": 113.54616599999918,
+      "id": "QA-T0366"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle shows names only for opted-in map participants and excludes contact and reveal data",
+      "status": "passed",
+      "duration_ms": 152.83516700000018,
+      "id": "QA-T0367"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle reads actual gift pairs and states without changing assignments or including late accounts",
+      "status": "passed",
+      "duration_ms": 88.31204199999956,
+      "id": "QA-T0368"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle saves the recipient's full name and shows it to their Santa without changing the account",
+      "status": "passed",
+      "duration_ms": 67.80595799999992,
+      "id": "QA-T0369"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects missing names and nicknames without replacing the existing recipient name",
+      "status": "passed",
+      "duration_ms": 42.58420800000022,
+      "id": "QA-T0370"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle allows withdrawing a legacy profile without requiring a new full name",
+      "status": "passed",
+      "duration_ms": 51.64825000000019,
+      "id": "QA-T0371"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle backfills legacy case variants from profiles and coordinator scopes into one identity",
+      "status": "passed",
+      "duration_ms": 37.876666000000114,
+      "id": "QA-T0372"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle serializes simultaneous additions and deduplicates case variants",
+      "status": "passed",
+      "duration_ms": 94.00116700000035,
+      "id": "QA-T0373"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle reuses a catalog entry when a profile submits a different case",
+      "status": "passed",
+      "duration_ms": 127.51837499999965,
+      "id": "QA-T0374"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle renames profiles and permissions after a draw while preserving all assignments",
+      "status": "passed",
+      "duration_ms": 98.35741599999983,
+      "id": "QA-T0375"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects conflicting renames and cross-city merges without changing profiles",
+      "status": "passed",
+      "duration_ms": 71.97450000000026,
+      "id": "QA-T0376"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle merges identities, retains coordinator permissions and leaves gift pairs unchanged",
+      "status": "passed",
+      "duration_ms": 131.2051250000004,
+      "id": "QA-T0377"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle resolves old forms and coordinator imports after both rename and merge",
+      "status": "passed",
+      "duration_ms": 88.7894580000002,
+      "id": "QA-T0378"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle restricts catalog access and editing and does not create sites for rejected imports",
+      "status": "passed",
+      "duration_ms": 60.88516600000003,
+      "id": "QA-T0379"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle resolves an old name when assigning a coordinator after a rename",
+      "status": "passed",
+      "duration_ms": 60.829791000000114,
+      "id": "QA-T0380"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle updates registration aggregates without drawing and excludes unconfirmed accounts",
+      "status": "passed",
+      "duration_ms": 77.6747919999998,
+      "id": "QA-T0381"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle lights only received assignments and leaves them unchanged when another account appears",
+      "status": "passed",
+      "duration_ms": 84.28350000000046,
+      "id": "QA-T0382"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle executes a draw once under concurrent calls",
+      "status": "passed",
+      "duration_ms": 129.6448330000003,
+      "id": "QA-T0383"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle supports password signup and login with the updated auth library",
+      "status": "passed",
+      "duration_ms": 682.4435839999996,
+      "id": "QA-T0384"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle runs the complete participant journey: real signup and login, both tracks, four rings, private wishes, reserve and all gift lights",
+      "status": "passed",
+      "duration_ms": 7084.004086000001,
+      "id": "QA-T0385"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle schedules, cancels and executes a due draw only once",
+      "status": "passed",
+      "duration_ms": 108.15241699999933,
+      "id": "QA-T0386"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects scheduling another draw after the event is already completed",
+      "status": "passed",
+      "duration_ms": 74.75950000000012,
+      "id": "QA-T0387"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle serializes concurrent scheduling requests and permits a new launch only after cancellation",
+      "status": "passed",
+      "duration_ms": 154.79404199999954,
+      "id": "QA-T0388"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects incompatible rings without partial data: Рядом: только два человека",
+      "status": "passed",
+      "duration_ms": 114.16512499999953,
+      "id": "QA-T0389"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects incompatible rings without partial data: Рядом: площадки разделены 2+1",
+      "status": "passed",
+      "duration_ms": 202.58591700000034,
+      "id": "QA-T0390"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects incompatible rings without partial data: Межгород: все из одного города",
+      "status": "passed",
+      "duration_ms": 273.0032919999994,
+      "id": "QA-T0391"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects incompatible rings without partial data: Межгород: несовместимое распределение 2+1",
+      "status": "passed",
+      "duration_ms": 192.4955829999999,
+      "id": "QA-T0392"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rolls back infeasible tracks without partial assignments",
+      "status": "passed",
+      "duration_ms": 116.8869999999988,
+      "id": "QA-T0393"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle cannot redraw a completed garland through the API",
+      "status": "passed",
+      "duration_ms": 126.04279200000019,
+      "id": "QA-T0394"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle freezes opt-in and budget after draw but allows map publication",
+      "status": "passed",
+      "duration_ms": 178.62229200000002,
+      "id": "QA-T0395"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle cancels only unexecuted drafts",
+      "status": "passed",
+      "duration_ms": 118.94220899999891,
+      "id": "QA-T0396"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle keeps legacy draw history without freezing new participation",
+      "status": "passed",
+      "duration_ms": 106.42433399999936,
+      "id": "QA-T0397"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle a giver cannot confirm receipt, but the receiver can do so once",
+      "status": "passed",
+      "duration_ms": 222.37429200000042,
+      "id": "QA-T0398"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle enforces actual coordinator scope stored in PostgreSQL",
+      "status": "passed",
+      "duration_ms": 211.83270899999843,
+      "id": "QA-T0399"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle requires a valid reserve volunteer and closes reserve only on receipt",
+      "status": "passed",
+      "duration_ms": 144.00004199999967,
+      "id": "QA-T0400"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects anonymous status changes",
+      "status": "passed",
+      "duration_ms": 43.469208000002254,
+      "id": "QA-T0401"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle imports a coordinator list atomically, with consent and scope checks",
+      "status": "passed",
+      "duration_ms": 78.08129199999894,
+      "id": "QA-T0402"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects local profiles without a site without overwriting saved data",
+      "status": "passed",
+      "duration_ms": 58.7678330000017,
+      "id": "QA-T0403"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects an entire import if a local participant has no site",
+      "status": "passed",
+      "duration_ms": 44.8047080000033,
+      "id": "QA-T0404"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle saves intercity profiles without sites or wishes and includes them in the draw",
+      "status": "passed",
+      "duration_ms": 108.15370800000164,
+      "id": "QA-T0405"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle allows editing a submitted profile after enrollment closes and while a draw is scheduled",
+      "status": "passed",
+      "duration_ms": 77.75591699999859,
+      "id": "QA-T0406"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle allows withdrawal after enrollment closes but rejects rejoining from a stale session",
+      "status": "passed",
+      "duration_ms": 67.93329100000119,
+      "id": "QA-T0407"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle rejects a first opt-in while enrollment is closed",
+      "status": "passed",
+      "duration_ms": 52.380332999997336,
+      "id": "QA-T0408"
+    },
+    {
+      "file": "lib/garland.integration.test.ts",
+      "name": "isolated PostgreSQL lifecycle freezes delivery profiles after draw while retaining all previous rows",
+      "status": "passed",
+      "duration_ms": 103.5090420000015,
+      "id": "QA-T0409"
+    }
+  ],
+  "raw_report_sha256": {
+    "db-initial": "7cec2be5bfa733863eabdb56967001ad8ca4985f6cbbda115e804fd35b42108b",
+    "unit-final": "2fffaef1a388a05501b385d322702d2b589eac23c41042fae13772400b6fc9cb",
+    "db-final": "5aa88fd908b68320b6aa2ea7123626b48be3464c3b3da37baf37b70c60d4fc4f"
+  }
+}

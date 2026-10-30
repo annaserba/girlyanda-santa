@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Функциональная проверка — Гирлянда Тайного Санты</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #23352b;
+        --muted: #647167;
+        --green: #285840;
+        --line: #dce4dc;
+        --bg: #f5f6f0;
+        --amber: #775a19;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      main {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 44px 28px 72px;
+      }
+      header {
+        padding: 30px 34px;
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 20px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--green);
+        font-weight: 700;
+      }
+      h1 {
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.14;
+        max-width: 850px;
+        margin: 13px 0;
+      }
+      h2 {
+        font-size: 26px;
+        margin: 36px 0 16px;
+      }
+      h3 {
+        line-height: 1.3;
+      }
+      p {
+        margin: 0.65em 0;
+      }
+      small {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+        margin-top: 7px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 14px;
+        overflow-wrap: anywhere;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 20px 0;
+      }
+      .metric {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+      }
+      .metric strong {
+        display: block;
+        font-size: 32px;
+        line-height: 1.15;
+        color: var(--green);
+      }
+      .metric span {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .notice {
+        padding: 16px 20px;
+        background: #fff6df;
+        border: 1px solid #e9d8aa;
+        border-radius: 12px;
+        color: #604814;
+      }
+      .panel {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 24px;
+      }
+      .table-wrap {
+        overflow: auto;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+      }
+      th {
+        text-align: left;
+        background: #edf2eb;
+        color: #32513d;
+        padding: 13px 14px;
+        vertical-align: top;
+      }
+      td {
+        padding: 15px 14px;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+      }
+      td:nth-child(1) {
+        width: 45px;
+      }
+      td:nth-child(2) {
+        width: 24%;
+      }
+      td:nth-child(3) {
+        width: 155px;
+      }
+      .id {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .badge {
+        display: inline-block;
+        padding: 5px 8px;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .ok {
+        background: #e8f2e8;
+        color: #28583c;
+      }
+      .pending {
+        background: #fff0ce;
+        color: var(--amber);
+      }
+      .defects {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .defect {
+        padding: 22px;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 10px 0 18px;
+      }
+      .search input {
+        font: inherit;
+        max-width: 520px;
+        width: 100%;
+        padding: 11px 14px;
+        border: 1px solid #aebead;
+        border-radius: 9px;
+        background: white;
+      }
+      .search label {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      li + li {
+        margin-top: 10px;
+      }
+      a {
+        color: var(--green);
+      }
+      code {
+        font-size: 0.9em;
+        overflow-wrap: anywhere;
+      }
+      .foot {
+        margin-top: 32px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 800px) {
+        main {
+          padding: 20px 14px;
+        }
+        .metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+        .defects {
+          grid-template-columns: 1fr;
+        }
+        .table-wrap {
+          border-radius: 8px;
+        }
+        table {
+          min-width: 880px;
+        }
+        header {
+          padding: 24px 20px;
+        }
+        .search {
+          align-items: stretch;
+          flex-direction: column;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 10pt;
+        }
+        main {
+          max-width: none;
+          padding: 0;
+        }
+        header {
+          border: 0;
+          padding: 0;
+        }
+        h1 {
+          font-size: 27pt;
+        }
+        .metrics {
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .search {
+          display: none;
+        }
+        .table-wrap {
+          overflow: visible;
+        }
+        table {
+          min-width: 0 !important;
+          font-size: 8pt;
+        }
+        td,
+        th {
+          padding: 8px;
+        }
+        thead {
+          display: table-header-group;
+        }
+        tr,
+        .defect {
+          break-inside: avoid;
+        }
+        .defects {
+          display: block;
+        }
+        .defect {
+          margin-bottom: 16px;
+        }
+        .notice {
+          background: #fff6df;
+        }
+        .panel {
+          border-color: #ccc;
+        }
+        a {
+          color: inherit;
+        }
+        h2 {
+          break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">Отчёт · 30 октября 2026</div>
+        <h1>Функциональная проверка<br />Гирлянды Тайного Санты</h1>
+        <p>
+          Основной функциональный контур прошёл проверки после исправления двух
+          найденных ошибок. Полная браузерная приёмка остаётся открытой: доступа
+          к localhost в браузере в этой сессии нет.
+        </p>
+        <p class="meta">
+          Версия <code>a27f6b284840e7a61c8552bc1376a5f6c2ac3b90</code
+          ><br />Финальный прогон: 2026-10-30T10:35:55+03:00 —
+          2026-10-30T10:36:31+03:00
+        </p>
+      </header>
+      <div class="metrics">
+        <div class="metric">
+          <strong>409 / 409</strong><span>автоматических проверок</span>
+        </div>
+        <div class="metric">
+          <strong>12</strong><span>участников полного обмена</span>
+        </div>
+        <div class="metric">
+          <strong>4</strong><span>кольца двух треков</span>
+        </div>
+        <div class="metric">
+          <strong>2</strong><span>ошибки найдены и исправлены</span>
+        </div>
+      </div>
+      <div class="notice">
+        <b>Браузерная приёмка не выполнена.</b> Этот отчёт подтверждает работу
+        обработчиков, базы и серверного рендеринга. Он не подтверждает реальные
+        клики, внешний вид, анимацию на экране или доставку писем.
+      </div>
+      <h2>Что прошло проверку</h2>
+      <div class="panel">
+        <p>
+          TypeScript — пройдено. Unit/SSR — <b>365 из 365</b>. PostgreSQL —
+          <b>44 из 44</b>. Production-сборка — пройдено.
+        </p>
+        <p>
+          14 синтетических аккаунтов: организатор, 12 участников и поздний
+          неподтверждённый аккаунт. Девять локальных участников в Уфе образуют
+          три кольца по площадкам/сменам. Москва, Казань и Томск образуют
+          межгородское кольцо. Все 12 подарков прошли отправку и получение;
+          отдельно проверен резерв.
+        </p>
+        <small
+          >Node.js v22.23.4 · Next.js 16.4.3 · PostgreSQL 17.11 · Linux ARM64 ·
+          изолированная база santa_verification. 44 DB-теста пропущены в
+          unit-прогоне и выполнены отдельно; двойного подсчёта нет.</small
+        >
+      </div>
+      <h2>Проверка шагов</h2>
+      <div class="search">
+        <label for="qa-search">Найти шаг</label
+        ><input
+          id="qa-search"
+          type="search"
+          placeholder="Например: трек, карта, получение…"
+        />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Этап и доказательство</th>
+              <th>Результат</th>
+              <th>Ожидание и наблюдение</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-case>
+              <td class="id">01</td>
+              <td>
+                <strong>Регистрация</strong
+                ><small
+                  >E01; app/api/signup/route.test.ts; lib/phone.test.ts</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Создать аккаунт с ФИО, почтой, номером РФ и
+                городом.
+                <p>
+                  14 синтетических аккаунтов созданы через настоящий обработчик
+                  регистрации; регистрация сама не включает человека в обмен.
+                  Проверки неверных ФИО, телефонов, городов и почты прошли в
+                  unit-наборе.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">02</td>
+              <td>
+                <strong>Вход и сессия</strong
+                ><small>E01; supports password signup and login</small>
+              </td>
+              <td><span class="badge ok">Пройдено · auth</span></td>
+              <td>
+                <b>Ожидание.</b> Войти по паролю и подтвердить личность по
+                сессии.
+                <p>
+                  Все 14 аккаунтов вошли через Better Auth; getSession распознал
+                  cookie и вернул нужного пользователя. Первый аккаунт —
+                  организатор, последующие — обычные участники.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">03</td>
+              <td>
+                <strong>Аккаунт без участия</strong
+                ><small>E01; updates registration aggregates</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Не добавлять неподтверждённую анкету на
+                гирлянду.
+                <p>
+                  До согласия счётчик не увеличивается; аккаунт организатора и
+                  поздний аккаунт без согласия в обмен не попали.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">04</td>
+              <td>
+                <strong>Трек «Рядом»</strong
+                ><small>E01; rejects local profiles without a site</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Требовать площадку и сохранять корректную
+                анкету.
+                <p>
+                  Пустая площадка даёт 400. Варианты «Офис» и « ОФИС » относятся
+                  к одной площадке.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">05</td>
+              <td>
+                <strong>Площадки и смены</strong
+                ><small>E01; lib/garland-draw.test.ts</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Разделить локальные группы по площадкам и
+                сменам.
+                <p>
+                  Созданы три отдельные локальные группы по 3 человека: Офис,
+                  Склад/День, Склад/Ночь. Назначения не вышли за пределы групп.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">06</td>
+              <td>
+                <strong>Трек «Через всю страну»</strong
+                ><small
+                  >E01; saves intercity profiles without sites or wishes</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Требовать ПВЗ; допускать пустые площадку и
+                пожелания.
+                <p>
+                  Без ПВЗ — 400. Три анкеты из Москвы, Казани и Томска
+                  сохранены; одна без пожеланий. Межгородские пары всегда из
+                  разных городов.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">07</td>
+              <td>
+                <strong>Просмотр и правки анкеты</strong
+                ><small>E01; components/participation-profile.test.tsx</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/SSR</span></td>
+              <td>
+                <b>Ожидание.</b> Показывать сохранённую анкету и разрешать
+                правки до жеребьёвки.
+                <p>
+                  После сохранения серверный рендер содержит новые пожелания.
+                  При закрытом приёме участник всё ещё видит кнопку
+                  редактирования и может изменить поданную анкету. Клики по
+                  кнопкам в браузере не проверены.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">08</td>
+              <td><strong>Смена трека и города</strong><small>E01</small></td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Перенести участника в другой трек и обновить
+                агрегаты.
+                <p>
+                  Участник временно переведён из Уфы/«Рядом» в Казань/«Страна»:
+                  Казань выросла с 1 до 2; после возврата состав восстановился.
+                  Получатели до жеребьёвки не создавались.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">09</td>
+              <td>
+                <strong>Отказ от участия</strong
+                ><small>E01; allows withdrawal after enrollment closes</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Убрать анкету из состава при снятии согласия.
+                <p>
+                  Число участников изменилось 12 → 11 → 12 при отказе и
+                  повторном согласии до закрытия приёма. Повторное согласие
+                  после закрытия отдельно отклонено.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">10</td>
+              <td>
+                <strong>Общая гирлянда до жеребьёвки</strong
+                ><small
+                  >E01; lib/russia-map.test.tsx;
+                  lib/garland-display.test.ts</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · данные/SSR</span></td>
+              <td>
+                <b>Ожидание.</b> Показывать только обезличенные данные и
+                реальные города.
+                <p>
+                  12 анкет, 4 города; с 8 базовыми географическими точками
+                  сформированы 10 разных маркеров. Новые Казань и Томск получили
+                  локальные координаты. Имен, контактов, ПВЗ и секретных токенов
+                  в публичном снимке нет.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">11</td>
+              <td>
+                <strong>Права доступа</strong
+                ><small
+                  >E01; enforces actual coordinator scope;
+                  app/garland/page.test.tsx</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/SSR</span></td>
+              <td>
+                <b>Ожидание.</b> Отказать гостю, постороннему и координатору
+                чужой площадки.
+                <p>
+                  Гость не меняет подарок: 401. Посторонний участник: 403.
+                  Обычный участник не запускает жеребьёвку. /garland закрыт
+                  гостям, участникам и координаторам; права координатора
+                  сверяются с PostgreSQL.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">12</td>
+              <td>
+                <strong>Жеребьёвка при открытом приёме</strong
+                ><small>E01; app/api/draw/route.test.ts</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Запретить распределение до закрытия приёма.
+                <p>API вернул 400, преждевременные назначения не появились.</p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">13</td>
+              <td>
+                <strong>Закрытие приёма</strong
+                ><small
+                  >E01; rejects a first opt-in while enrollment is closed</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Блокировать новые вступления, сохраняя правки
+                уже поданных анкет.
+                <p>
+                  Поздний аккаунт из Сочи создан, но вступление отклонено: 400.
+                  Уже подтверждённая анкета изменена: 200.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">14</td>
+              <td><strong>Жеребьёвка двух треков</strong><small>E01</small></td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Каждому дать одного получателя и одного
+                дарителя.
+                <p>
+                  201; 12 назначений; 4 кольца. У всех уникальные даритель и
+                  получатель. Нет подарков себе и взаимных пар. Все локальные и
+                  межгородские ограничения сохранены.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">15</td>
+              <td>
+                <strong>Невозможный состав</strong
+                ><small
+                  >rejects incompatible rings without partial data (4
+                  cases)</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Не создавать частичные назначения или пустую
+                историю.
+                <p>
+                  Проверены 4 состава: 2 локальных участника; площадки 2+1; один
+                  межгородской город; межгород 2+1 по городам. Для каждого
+                  проверены запуск сейчас и расписание: 400, 0 назначений, 0
+                  черновиков.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">16</td>
+              <td>
+                <strong>Получатель и его пожелания</strong
+                ><small>E01; QA-B01</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/SSR</span></td>
+              <td>
+                <b>Ожидание.</b> Показать Санте ФИО получателя и добавленные
+                после жеребьёвки идеи.
+                <p>
+                  После исправления дополнительное пожелание и ссылка появились
+                  в кабинете нужного Санты. Чужое удаление не удалило запись.
+                  Имя входящего Санты в кабинете не раскрыто.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">17</td>
+              <td>
+                <strong>Фиксация анкеты после жеребьёвки</strong
+                ><small>E01; freezes delivery profiles after draw</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/SSR</span></td>
+              <td>
+                <b>Ожидание.</b> Оставить просмотр, заблокировав самостоятельные
+                правки.
+                <p>
+                  API правки вернул 400. В серверном рендере больше нет кнопки
+                  редактирования. У неподобранного позднего аккаунта правки
+                  также блокируются.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">18</td>
+              <td><strong>Отметка отправки</strong><small>E01</small></td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Разрешить отправку дарителю, не зажигая огонёк.
+                <p>
+                  Все 12 подарков отмечены как отправленные. Проверены обычный
+                  подарок, навык и сертификат, сохранение заметок и повторное
+                  действие. Записей отправки в журнале ровно 12; получено всё
+                  ещё 0.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">19</td>
+              <td>
+                <strong>Санта-резерв</strong
+                ><small>E01; requires a valid reserve volunteer</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Сохранить запрос, назначить добровольца и
+                дождаться получателя.
+                <p>
+                  Получатель запросил помощь, организатор назначил резерв,
+                  доброволец отметил резервный сертификат. Отправка резерва не
+                  зажгла огонёк; получение перевело резерв в resolved.
+                  Неправомерные действия отдельно отклонены.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">20</td>
+              <td>
+                <strong>Подтверждение получения</strong
+                ><small>E01; a giver cannot confirm receipt</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Зажечь огонёк только по подтверждению
+                получателя/уполномоченного координатора.
+                <p>
+                  Получатель каждого из 12 подарков подтвердил получение. После
+                  каждого шага проверены общее число, нужный город и площадка.
+                  Повторные нажатия не добавили огоньки или записи журнала.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">21</td>
+              <td>
+                <strong>Финальная гирлянда</strong
+                ><small>E01; lib/map-render.test.tsx</small>
+              </td>
+              <td><span class="badge ok">Пройдено · данные/SSR</span></td>
+              <td>
+                <b>Ожидание.</b> Правильно показать все полученные подарки.
+                <p>
+                  Публичный итог: 12 из 12. В каждом городе received равно
+                  total. Закрытая карта организатора показывает 12 отправленных
+                  и полученных подарков. Фактический цвет пикселей в браузере не
+                  проверен.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">22</td>
+              <td>
+                <strong>Неизменность секретных пар</strong
+                ><small>E01; rejects scheduling another draw; QA-B02</small>
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Не менять пары из-за поздней регистрации и
+                отметок статусов.
+                <p>
+                  Все giverId, receiverId и revealToken после полного обмена
+                  совпадают с исходными. Повторная жеребьёвка отклонена; после
+                  исправления нельзя создать и повторное расписание.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">23</td>
+              <td>
+                <strong>Расписание и отмена</strong
+                ><small
+                  >schedules, cancels and executes a due draw only once; cancels
+                  only unexecuted drafts</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> До срока не запускать, черновик отменять,
+                просроченный запуск выполнять один раз.
+                <p>
+                  Будущее задание не выполнено; отмена удалила черновик.
+                  Просроченное задание выполнено один раз; следующий tick — 0
+                  запусков. Завершённую жеребьёвку отменить нельзя.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">24</td>
+              <td>
+                <strong>Одновременные команды</strong
+                ><small
+                  >serializes concurrent scheduling requests; executes a draw
+                  once under concurrent calls</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Исключить двойное расписание и повторные
+                назначения.
+                <p>
+                  Четыре одновременных запроса расписания дали 1×201 и 3×400.
+                  После отмены разрешён новый запуск. Отдельный тест 12
+                  конкурентных executeDraw выполнил ровно одну жеребьёвку.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">25</td>
+              <td>
+                <strong>Координатор, импорт и площадки</strong
+                ><small
+                  >imports a coordinator list atomically; renames/merges
+                  identities integration cases</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/БД</span></td>
+              <td>
+                <b>Ожидание.</b> Соблюдать области доступа и атомарность
+                импорта/объединения.
+                <p>
+                  Проверены согласие, чужая площадка, дубликаты, отмена всего
+                  импорта при ошибке, регистр названий, переименование и
+                  объединение. Старые названия разрешаются через алиасы,
+                  подарочные пары сохраняются.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">26</td>
+              <td>
+                <strong>QR и общая рассылка</strong
+                ><small
+                  >E01; app/api/registration-qr/route.test.ts;
+                  lib/bulk-email.test.ts</small
+                >
+              </td>
+              <td><span class="badge ok">Пройдено · API/структура</span></td>
+              <td>
+                <b>Ожидание.</b> Использовать текущий адрес сайта и BCC без
+                раскрытия персональных пар.
+                <p>
+                  QR API отдаёт SVG для текущего origin. Общее письмо содержит
+                  12 адресов BCC, без To и персональных назначений. Unit-тест
+                  сохраняет все 1500 синтетических адресов и русские символы.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">27</td>
+              <td>
+                <strong>Клики, адаптивность и анимация</strong
+                ><small>Ограничение окружения</small>
+              </td>
+              <td><span class="badge pending">Не проверено · браузер</span></td>
+              <td>
+                <b>Ожидание.</b> Пройти кнопки, поиск, фокус, отмену изменений и
+                посмотреть карту на разных экранах.
+                <p>
+                  Доступ к localhost через браузер в этой сессии заблокирован.
+                  Проверены только SSR-разметка, исходная геометрия и настройки
+                  анимации; скриншоты и визуальная приёмка отсутствуют.
+                </p>
+              </td>
+            </tr>
+            <tr data-case>
+              <td class="id">28</td>
+              <td>
+                <strong>Фактическая почта и доставка</strong
+                ><small>За пределами автоматического контура</small>
+              </td>
+              <td>
+                <span class="badge pending"
+                  >Не проверено · внешние системы</span
+                >
+              </td>
+              <td>
+                <b>Ожидание.</b> Проверить почтовый клиент и реальную доставку
+                подарка.
+                <p>
+                  Письма людям не отправлялись. Приложение формирует mailto/BCC
+                  и хранит ручные статусы подарка; не подтверждает работу
+                  Outlook, SMTP, перевозчика или ПВЗ.
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="meta">
+        E01 — связный тест полного обмена в lib/garland.integration.test.ts. Все
+        названия тестов и их результаты — в
+        <a href="evidence.json">evidence.json</a>.
+      </p>
+      <h2>Две исправленные ошибки</h2>
+      <div class="defects">
+        <article class="defect">
+          <span class="badge pending">QA-B01 · P2 · средняя</span>
+          <h3>Дополнительные пожелания не видны Санте в личном кабинете</h3>
+          <p>
+            <b>До исправления.</b> Получатель добавляет пункт в «Мои пожелания»
+            после жеребьёвки. Запись есть в PostgreSQL, но в кабинете его Санты
+            текст отсутствует. Новый сквозной тест падал на проверке этого
+            текста в SSR.
+          </p>
+          <p>
+            <b>Исправление.</b> Кабинет выбирает пожелания только своего
+            получателя и активных получателей резерва; показывает их в
+            соответствующей карточке.
+          </p>
+          <p>
+            <b>Проверка.</b> Сквозной тест видит сохранённое пожелание у нужного
+            Санты; права на чужую запись не расширены.
+          </p>
+        </article>
+        <article class="defect">
+          <span class="badge pending">QA-B02 · P2 · средняя</span>
+          <h3>
+            После завершения можно создать лишнюю жеребьёвку по расписанию
+          </h3>
+          <p>
+            <b>До исправления.</b> POST с будущей датой после успешного
+            распределения возвращал 201 вместо 400. Создавался лишний черновик;
+            уже выданные пары при этом были защищены исполнителем и не менялись.
+          </p>
+          <p>
+            <b>Исправление.</b> Создание выполняется под общей блокировкой
+            события. Завершённое событие и уже существующий черновик проверяются
+            до вставки; одновременно допускается только один ожидающий запуск.
+          </p>
+          <p>
+            <b>Проверка.</b> Повторное расписание — 400. Четыре конкурентных
+            запроса создали ровно одно задание. Отмена и последующий корректный
+            запуск работают.
+          </p>
+        </article>
+      </div>
+      <p class="meta">
+        До исправлений расширенный DB-прогон: 37 успешно, 2 ошибки. После
+        исправлений и расширения матрицы: 44 успешно.
+      </p>
+      <h2>Границы вывода</h2>
+      <div class="panel">
+        <ul>
+          <li>
+            Это функциональная проверка обработчиков, PostgreSQL и серверного
+            React-рендеринга, а не браузерный E2E-прогон. HTTP-маршрутизация
+            Next.js, браузерное сохранение cookie, reverse proxy и TLS в целевом
+            контуре этим запуском не проверены.
+          </li>
+          <li>
+            В главном связном сценарии регистрация и вход используют настоящую
+            библиотеку авторизации и реальную сессию. Личность для прямых
+            вызовов обработчиков передаётся тестовым адаптером lib/session; в
+            остальных интеграционных сценариях роли задаются фикстурами.
+          </li>
+          <li>
+            Не проверены реальные клики, поиск и прокрутка селектов,
+            переключение формы/просмотра, отмена несохранённых правок, фокус,
+            клавиатура, мобильные размеры, контраст, кадры анимации и
+            доступность для скринридеров.
+          </li>
+          <li>
+            Публичная карта обновляется при новом запросе страницы.
+            Автообновление отключено по ранее выбранному поведению; прохождение
+            теста не означает мгновенное изменение уже открытого экрана другого
+            пользователя.
+          </li>
+          <li>
+            Статусы «отправлено» и «получено» — подтверждения людей в
+            приложении. Они не проверяют факт физической передачи или доставки.
+            Реальная отправка письма из Outlook, ограничения BCC и работа
+            корпоративной почты не выполнялись.
+          </li>
+          <li>
+            Тест на 1500 участников проверяет алгоритм, а не 1500 одновременных
+            пользователей. Нагрузочный тест сервера и промышленный контур
+            CI/Vault/Argo в этот прогон не входят.
+          </li>
+        </ul>
+      </div>
+      <h2>Что проверить в браузере</h2>
+      <div class="panel">
+        <ol>
+          <li>
+            На отдельном стенде повторить шаги 01–24 мышью и клавиатурой на
+            широком экране и телефоне; снять скриншоты состояний.
+          </li>
+          <li>
+            Проверить поиск города и площадки, создание новой площадки,
+            переключение трека, сохранение и отмену правок без потери введённых
+            данных.
+          </li>
+          <li>
+            В двух браузерных сессиях проверить: участник видит только своего
+            получателя; организатор видит /garland; главная остаётся
+            обезличенной.
+          </li>
+          <li>
+            Обновить главную после отправки и после получения; убедиться, что
+            огонёк меняется только во втором случае, а анимация работает.
+          </li>
+          <li>
+            Проверить QR сканером телефона из корпоративной сети и подготовку
+            тестового письма в Outlook с разрешёнными тестовыми адресами.
+          </li>
+        </ol>
+      </div>
+      <p class="foot">
+        Полный текст: <a href="report.md">report.md</a> · Машинные результаты:
+        <a href="evidence.json">evidence.json</a>. Отчёт автономный, внешние
+        шрифты и сервисы не используются. Для печати используйте команду печати
+        браузера.
+      </p>
+    </main>
+    <script>
+      document
+        .getElementById("qa-search")
+        .addEventListener("input", function () {
+          const q = this.value.toLocaleLowerCase("ru");
+          for (const row of document.querySelectorAll("[data-case]"))
+            row.hidden = !row.textContent.toLocaleLowerCase("ru").includes(q);
+        });
+    </script>
+  </body>
+</html>
